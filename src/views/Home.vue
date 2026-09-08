@@ -77,8 +77,9 @@ import dayjs from 'dayjs'
 const store = useNavStore()
 const filterQuery = ref('')
 const showUpdateModal = ref(false)
-// 版本更新地址，你需要在这里配置阿里云 OSS 的 JSON 文件地址
-const updateUrl = ref('https://your-bucket.oss-cn-hangzhou.aliyuncs.com/app-version.json')
+// 版本更新地址：指向 GitHub 仓库中的 app-version.json（推 tag 发版后由 CI 自动构建 Releases）
+// 替换 OWNER/REPO 为实际的 GitHub 用户名/仓库名
+const updateUrl = ref('https://raw.githubusercontent.com/OWNER/REPO/master/public/app-version.json')
 
 onMounted(async () => {
   await store.loadCache()
