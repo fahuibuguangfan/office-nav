@@ -55,6 +55,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install macOS Intel OpenSSL
+        if: matrix.platform == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin'
+        run: |
+          # ARM runner 上装 x86_64 版 OpenSSL（Rosetta），供交叉编译 Intel 目标链接
+          arch -x86_64 /usr/local/bin/brew install openssl@3
+          echo "OPENSSL_DIR=/usr/local/opt/openssl@3" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=/usr/local/opt/openssl@3/lib" >> $GITHUB_ENV
+
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
