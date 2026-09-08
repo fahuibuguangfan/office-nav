@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景圆角矩形 -->
+  <rect width="512" height="512" rx="80" fill="url(#grad1)"/>
+
+  <!-- 导航图标：网格 + 箭头 -->
+  <g transform="translate(256, 256)">
+    <!-- 网格 -->
+    <rect x="-140" y="-140" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+    <rect x="-40" y="-140" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+    <rect x="60" y="-140" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+
+    <rect x="-140" y="-40" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+    <rect x="-40" y="-40" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+    <rect x="60" y="-40" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+
+    <rect x="-140" y="60" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+    <rect x="-40" y="60" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+    <rect x="60" y="60" width="80" height="80" rx="12" fill="white" opacity="0.9"/>
+
+    <!-- 中心导航箭头 -->
+    <circle cx="0" cy="0" r="50" fill="#ffd700"/>
+    <path d="M 0,-25 L 15,0 L 0,25 L 0,10 L -20,10 L -20,-10 L 0,-10 Z" fill="#764ba2"/>
+  </g>
+</svg>

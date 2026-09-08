@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>办公室服务导航</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #000;
+            position: relative;
+            overflow: auto; /* 数据过多时显示滚动条 */
+            padding: 20px;
+            color: white;
+        }
+
+        /* 星空背景 */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 5s infinite;
+        }
+
+        @keyframes twinkle {
+            0% {
+                opacity: 0.2;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.2;
+            }
+        }
+
+        .group {
+            border: 2px solid #ffffff;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .group-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .group-name {
+            margin-right: 10px;
+        }
+
+        .triangle {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 10px solid #ffffff;
+            transition: transform 0.3s;
+        }
+
+        .triangle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+
+        .grid-container.collapsed {
+            display: none;
+        }
+
+        .grid-item {
+            position: relative;
+            /*padding-top: 56.25%;*/ /* 16:9 比例 */
+            padding-top: 50px;
+            border-radius: 5px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .item-name {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="stars"></div>
+    <div id="app"></div>
+    <script>
+        // 生成随机星星
+        function createStars() {
+            const starsContainer = document.querySelector('.stars');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = Math.random() * 2 + 'px';
+                star.style.height = Math.random() * 2 + 'px';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 5 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+
+        createStars();
+
+        const data = [
+            { name: 'JIRA', url: 'http://192.0.2.79:8888/' , group: '开发分组'},
+    		  { name: 'Kibana', url: 'http://192.0.2.56:5601/', group: '开发分组'},
+            { name: 'Jenkins', url: 'http://192.0.2.110:8888/' , group: '开发分组'},
+            { name: 'maven私服', url: 'http://203.0.113.16:8181/' , group: '开发分组'},
+
+            { name: '测试环境管理员后台', url: 'http://192.0.2.35:18081/#/loginAdmin', group: '测试环境-35' },
+            { name: '测试环境后台', url: 'http://192.0.2.35:18081/', group: '测试环境-35' },
+            { name: '测试环境商城', url: 'http://192.0.2.35:18081/#/mall/login', group: '测试环境-35' },
+            { name: '测试环境H5', url: 'http://192.0.2.35:18082/', group: '测试环境-35' },
+
+            { name: '演示正式环境管理员后台', url: 'http://192.0.2.201:18081/#/loginAdmin', group: '演示正式环境-201' },
+            { name: '演示正式环境后台', url: 'http://192.0.2.201:18081/', group: '演示正式环境-201' },
+            { name: '演示正式环境H5', url: 'http://192.0.2.201:18082/', group: '演示正式环境-201'} ,
+            
+            { name: '2.0演示管理员后台', url: 'https://jicai2.example.com/#/loginAdmin' , group: '2.0演示'},
+            { name: '2.0演示后台', url: 'https://jicai2.example.com/#/login' , group: '2.0演示'},
+            { name: '2.0演示商城', url: 'https://jicai2.example.com/#/mall/login' , group: '2.0演示'},
+            { name: '2.0演示H5', url: 'https://jicai2.example.com:18082/' , group: '2.0演示'},
+            
+            { name: '2.0天美演示管理员后台', url: 'https://jicai2.example.com:18086/#/loginAdmin' , group: '2.0天美演示'},
+            { name: '2.0天美演示后台', url: 'https://jicai2.example.com:18086/#/login' , group: '2.0天美演示'},
+            { name: '2.0天美演示商城', url: 'https://jicai2.example.com:18086/#/mall/login' , group: '2.0天美演示'},
+            { name: '2.0天美演示H5', url: 'https://jicai2.example.com:18087/' , group: '2.0天美演示'},
+            
+            { name: '1.0演示', url: 'http://jicai1.example.com/school-meals-admin' , group: '1.0演示后台'},
+            { name: '1.0扬州宝应演示', url: 'http://203.0.113.14:40001/huaian-school-meals-admin/' , group: '1.0演示后台'},
+
+
+            { name: '开发环境管理员后台', url: 'http://192.0.2.113:18081/#/loginAdmin', group: '开发环境-113' },
+            { name: '开发环境后台', url: 'http://192.0.2.113:18081/#/login', group: '开发环境-113' },
+            { name: '开发环境商城', url: 'http://192.0.2.113:18081/#/mall/login', group: '开发环境-113' },
+            { name: '开发环境H5', url: 'http://192.0.2.113:18082/', group: '开发环境-113' },
+
+            { name: '天水开发测试环境管理员后台', url: 'http://192.0.2.114:18081/#/loginAdmin', group: '天水开发测试环境-114' },
+            { name: '天水开发测试环境后台', url: 'http://192.0.2.114:18081/', group: '天水开发测试环境-114' },
+            { name: '天水开发测试环境商城', url: 'http://192.0.2.114:18081/#/mall/login', group: '天水开发测试环境-114' },
+            { name: '天水开发测试环境H5', url: 'http://192.0.2.114:18082/', group: '天水开发测试环境-114' },
+            { name: '天水开发测试环境后台外网映射', url: 'http://tsbdcs.example.org', group: '天水开发测试环境-114' },
+            { name: '天水NEW开发测试环境管理员后台', url: 'http://192.0.2.114:18071/#/loginAdmin', group: '天水开发测试环境-114' },
+            { name: '天水NEW开发测试环境后台', url: 'http://192.0.2.114:18071/', group: '天水开发测试环境-114' },
+            { name: '天水NEW开发测试环境商城', url: 'http://192.0.2.114:18071/#/mall/login', group: '天水开发测试环境-114' },
+            { name: '天水NEW开发测试环境H5', url: 'http://192.0.2.114:18072/', group: '天水开发测试环境-114' },
+
+            { name: '天美开测环境管理员后台', url: 'http://192.0.2.115:18081/#/loginAdmin', group: '天美开发测试环境-115' },
+            { name: '天美开测环境后台', url: 'http://192.0.2.115:18081/', group: '天美开发测试环境-115' },
+            { name: '天美开测环境商城', url: 'http://192.0.2.115:18081/#/mall/login', group: '天美开发测试环境-115' },
+            { name: '天美开测环境H5', url: 'http://192.0.2.115:18082/', group: '天美开发测试环境-115' },
+
+            { name: '天美开测环境后台外网映射', url: 'http://tmceshi.example.org/#/login', group: '天美开发测试环境-115' },
+            { name: '天美开测环境H5外网映射', url: 'https://tmcemoble.example.org/', group: '天美开发测试环境-115' },
+            
+            { name: '天美多供应链开测环境管理员后台', url: 'http://192.0.2.115:18181/#/loginAdmin', group: '天美开发测试环境-115' },
+            { name: '天美多供应链开测环境H5', url: 'http://192.0.2.115:18182/', group: '天美开发测试环境-115' },
+
+            { name: '东湖开测环境管理员后台', url: 'http://192.0.2.116:18081/#/loginAdmin', group: '东湖开测环境-116' },
+            { name: '东湖开测环境后台', url: 'http://192.0.2.116:18081/', group: '东湖开测环境-116' },
+            { name: '东湖开测环境商城', url: 'http://192.0.2.116:18081/#/mall/login', group: '东湖开测环境-116' },
+            { name: '东湖开测环境H5', url: 'http://192.0.2.116:18082/', group: '东湖开测环境-116' },
+            { name: '东湖开测环境PDA', url: 'http://192.0.2.116:18082/#/pages-pda/index', group: '东湖开测环境-116' },
+            
+            { name: '鼓楼开测环境管理员后台', url: 'http://192.0.2.117:18081/#/loginAdmin', group: '鼓楼开发测试环境-117' },
+            { name: '鼓楼开测环境后台', url: 'http://192.0.2.117:18081/', group: '鼓楼开发测试环境-117' },
+            { name: '鼓楼开测环境商城', url: 'http://192.0.2.117:18081/#/mall/login', group: '鼓楼开发测试环境-117' },
+            { name: '鼓楼开测环境H5', url: 'http://192.0.2.117:18082/', group: '鼓楼开发测试环境-117' },
+            { name: '鼓楼开测环境PDA', url: 'http://192.0.2.117:18082/#/pages-pda/index', group: '鼓楼开发测试环境-117' },
+            { name: '鼓楼开测环境后台外网映射', url: 'http://203.0.113.16:18106/#/login', group: '鼓楼开发测试环境-117' },
+            { name: '鼓楼开测环境H5外网映射', url: 'http://203.0.113.16:18107/', group: '鼓楼开发测试环境-117' },
+            
+            { name: '利农开测环境管理员后台', url: 'http://192.0.2.118:18081/#/loginAdmin', group: '利农开测环境-118' },
+            { name: '利农开测环境后台', url: 'http://192.0.2.118:18081/', group: '利农开测环境-118' },
+            { name: '利农开测环境商城', url: 'http://192.0.2.118:18081/#/mall/login', group: '利农开测环境-118' },
+            { name: '利农开测环境H5', url: 'http://192.0.2.118:18082/', group: '利农开测环境-118' },
+
+            { name: '玄武开测环境管理员后台', url: 'http://192.0.2.119:18081/#/loginAdmin', group: '玄武开发测试环境-119' },
+            { name: '玄武开测环境后台', url: 'http://192.0.2.119:18081/', group: '玄武开发测试环境-119' },
+            { name: '玄武开测环境商城', url: 'http://192.0.2.119:18081/#/mall/login', group: '玄武开发测试环境-119' },
+            { name: '玄武开测环境H5', url: 'http://192.0.2.119:18082/', group: '玄武开发测试环境-119' },
+
+            { name: '供管部开测环境管理员后台', url: 'http://192.0.2.120:18081/#/loginAdmin', group: '供管部开发测试环境-120' },
+            { name: '供管部开测环境后台', url: 'http://192.0.2.120:18081/', group: '供管部开发测试环境-120' },
+            { name: '供管部开测环境商城', url: 'http://192.0.2.120:18081/#/mall/login', group: '供管部开发测试环境-120' },
+            { name: '供管部开测环境H5', url: 'http://192.0.2.120:18082/', group: '供管部开发测试环境-120' },
+
+            { name: '邯郸开测环境管理员后台', url: 'http://192.0.2.121:18081/#/loginAdmin', group: '邯郸开发测试环境-121' },
+            { name: '邯郸开测环境后台', url: 'http://192.0.2.121:18081/', group: '邯郸开发测试环境-121' },
+            { name: '邯郸开测环境商城', url: 'http://192.0.2.121:18081/#/mall/login', group: '邯郸开发测试环境-121' },
+            { name: '邯郸开测环境H5', url: 'http://192.0.2.121:18082/', group: '邯郸开发测试环境-121' },
+
+            { name: '邯郸天美开测环境管理员后台', url: 'http://192.0.2.121:18083/#/loginAdmin', group: '邯郸开发测试环境-121' },
+            { name: '邯郸天美开测环境后台', url: 'http://192.0.2.121:18083/', group: '邯郸开发测试环境-121' },
+            { name: '邯郸天美开测环境商城', url: 'http://192.0.2.121:18083/#/mall/login', group: '邯郸开发测试环境-121' },
+            { name: '邯郸天美开测环境H5', url: 'http://192.0.2.121:18084/', group: '邯郸开发测试环境-121' },
+
+            { name: '天水正式环境管理员后台', url: 'https://www.example.net:18081/#/loginAdmin', group: '天水正式环境-demo' },
+            { name: '天水正式环境后台', url: 'https://www.example.net:18081/', group: '天水正式环境-demo' },
+            { name: '天水正式环境商城', url: 'https://www.example.net:18081/#/mall/login', group: '天水正式环境-demo' },
+            { name: '天水正式环境H5', url: 'https://www.example.net:18082/', group: '天水正式环境-demo' },
+
+            { name: '天美正式环境管理员后台', url: 'http://203.0.113.112:18081/#/loginAdmin', group: '天美正式环境-95' },
+            { name: '天美正式环境后台', url: 'http://203.0.113.112:18081/', group: '天美正式环境-95' },
+            { name: '天美正式环境商城', url: 'http://203.0.113.112:18081/#/mall/login', group: '天美正式环境-95' },
+            { name: '天美正式环境H5', url: 'http://203.0.113.112:18082/', group: '天美正式环境-95' },
+
+            { name: '天美高中部正式环境管理员后台', url: 'http://203.0.113.112:18071/#/loginAdmin', group: '天美正式环境-95' },
+            { name: '天美高中部正式环境后台', url: 'http://203.0.113.112:18071/', group: '天美正式环境-95' },
+            { name: '天美高中部正式环境商城', url: 'http://203.0.113.112:18071/#/mall/login', group: '天美正式环境-95' },
+            { name: '天美高中部正式环境H5', url: 'http://203.0.113.112:18072/', group: '天美正式环境-95' },
+
+            { name: '天美供管部正式环境管理员后台', url: 'http://203.0.113.112:18061/#/loginAdmin', group: '天美正式环境-95' },
+            { name: '天美供管部正式环境后台', url: 'http://203.0.113.112:18061/', group: '天美正式环境-95' },
+            { name: '天美供管部正式环境商城', url: 'http://203.0.113.112:18061/#/mall/login', group: '天美正式环境-95' },
+            { name: '天美供管部正式环境H5', url: 'http://203.0.113.112:18062/', group: '天美正式环境-95' },
+
+            { name: '天美美供正式环境管理员后台', url: 'http://203.0.113.112:18051/#/loginAdmin', group: '天美正式环境-95' },
+            { name: '天美美供正式环境后台', url: 'http://203.0.113.112:18051/', group: '天美正式环境-95' },
+            { name: '天美美供正式环境商城', url: 'http://203.0.113.112:18051/#/mall/login', group: '天美正式环境-95' },
+            { name: '天美美供正式环境H5', url: 'http://203.0.113.112:18052/', group: '天美正式环境-95' },
+
+            { name: '美泉正式环境管理员后台', url: 'http://203.0.113.112:18041/#/loginAdmin', group: '天美正式环境-95' },
+            { name: '美泉正式环境后台', url: 'http://203.0.113.112:18041/', group: '天美正式环境-95' },
+            { name: '美泉正式环境商城', url: 'http://203.0.113.112:18041/#/mall/login', group: '天美正式环境-95' },
+            { name: '美泉正式环境H5', url: 'http://203.0.113.112:18042/', group: '天美正式环境-95' },
+
+            { name: '绿苑正式环境管理员后台', url: 'http://203.0.113.112:18031/#/loginAdmin', group: '天美正式环境-95' },
+            { name: '绿苑正式环境后台', url: 'http://203.0.113.112:18031/', group: '天美正式环境-95' },
+            { name: '绿苑正式环境商城', url: 'http://203.0.113.112:18031/#/mall/login', group: '天美正式环境-95' },
+            { name: '绿苑正式环境H5', url: 'http://203.0.113.112:18032/', group: '天美正式环境-95' },
+
+
+            { name: '鼓楼正式环境管理员后台', url: 'http://203.0.113.213/#/loginAdmin', group: '鼓楼正式环境-213' },
+            { name: '鼓楼正式环境后台', url: 'http://203.0.113.213/', group: '鼓楼正式环境-213' },
+            { name: '鼓楼正式环境商城', url: 'http://203.0.113.213/#/mall/login', group: '鼓楼正式环境-213' },
+            { name: '鼓楼正式环境H5', url: 'http://203.0.113.213:18082/', group: '鼓楼正式环境-213' },
+
+            { name: '东湖预生产环境管理员后台', url: 'http://203.0.113.107:38081/#/loginAdmin', group: '东湖预生产环境-107' },
+            { name: '东湖预生产环境后台', url: 'http://203.0.113.107:38081/', group: '东湖预生产环境-107' },
+            { name: '东湖预生产环境商城', url: 'http://203.0.113.107:38081/#/mall/login', group: '东湖预生产环境-107' },
+            { name: '东湖预生产环境H5', url: 'http://203.0.113.107:38082/', group: '东湖预生产环境-107'} ,
+
+            { name: '东湖正式环境管理员后台', url: 'https://ygjc.demo.example.org/#/loginAdmin', group: '东湖正式环境-107' },
+            { name: '东湖正式环境后台', url: 'https://ygjc.demo.example.org/', group: '东湖正式环境-107' },
+            { name: '东湖正式环境商城', url: 'http://203.0.113.107:28081/#/mall/login', group: '东湖正式环境-107' },
+            { name: '东湖正式环境H5', url: 'https://ygjc.demo.example.org:18082/', group: '东湖正式环境-107'} ,
+
+            { name: '玄武2.0正式环境管理员后台', url: 'http://ygjc.demo.example.net/#/loginAdmin', group: '玄武2.0正式环境-48' },
+            { name: '玄武2.0正式环境后台', url: 'http://ygjc.demo.example.net/', group: '玄武2.0正式环境-48' },
+            { name: '玄武2.0预生产环境商城', url: 'http://ygjc.demo.example.net/#/mall/login', group: '玄武2.0正式环境-48' },
+            { name: '玄武2.0正式环境H5', url: 'http://203.0.113.48:18082/', group: '玄武2.0正式环境-48'} ,
+
+            { name: '邯郸-武安县2.0正式环境管理员后台', url: 'http://203.0.113.210:18011/#/loginAdmin', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-武安县2.0正式环境后台', url: 'http://203.0.113.210:18011/', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-武安县2.0预生产环境商城', url: 'http://203.0.113.210:18011/#/mall/login', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-武安县2.0正式环境H5', url: 'http://203.0.113.210:18012/', group: '邯郸2.0正式环境-210'} ,
+
+            { name: '邯郸-复兴区2.0正式环境管理员后台', url: 'http://203.0.113.210:18021/#/loginAdmin', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-复兴区2.0正式环境后台', url: 'http://203.0.113.210:18021/', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-复兴区2.0预生产环境商城', url: 'http://203.0.113.210:18021/#/mall/login', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-复兴区2.0正式环境H5', url: 'http://203.0.113.210:18022/', group: '邯郸2.0正式环境-210'} ,
+
+            { name: '邯郸-丛台区2.0正式环境管理员后台', url: 'http://203.0.113.210:18031/#/loginAdmin', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-丛台区2.0正式环境后台', url: 'http://203.0.113.210:18031/', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-丛台区2.0预生产环境商城', url: 'http://203.0.113.210:18031/#/mall/login', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-丛台区2.0正式环境H5', url: 'http://203.0.113.210:18032/', group: '邯郸2.0正式环境-210'} ,
+
+            { name: '邯郸-广平县2.0正式环境管理员后台', url: 'http://203.0.113.210:18041/#/loginAdmin', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-广平县2.0正式环境后台', url: 'http://203.0.113.210:18041/', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-广平县2.0预生产环境商城', url: 'http://203.0.113.210:18041/#/mall/login', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-广平县2.0正式环境H5', url: 'http://203.0.113.210:18042/', group: '邯郸2.0正式环境-210'} ,
+
+            { name: '邯郸-磁县2.0正式环境管理员后台', url: 'http://203.0.113.210:18051/#/loginAdmin', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-磁县2.0正式环境后台', url: 'http://203.0.113.210:18051/', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-磁县2.0预生产环境商城', url: 'http://203.0.113.210:18051/#/mall/login', group: '邯郸2.0正式环境-210' },
+            { name: '邯郸-磁县2.0正式环境H5', url: 'http://203.0.113.210:18052/', group: '邯郸2.0正式环境-210'} ,
+
+            // { name: '文旅国发明睿甄选', url: 'http://203.0.113.93:40011/' , group: '2.0'},
+
+            { name: '经开区东湖甄选', url: 'http://203.0.113.83:40001/huaian-school-meals-admin/' , group: '1.0集采正式'},
+            { name: '淮安区名城', url: 'http://203.0.113.221:8081/huaian-school-meals-admin/' , group: '1.0集采正式'},
+            { name: '盱眙', url: 'http://duliangyp.example.com:40001/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '清江浦区', url: 'https://www.example.com/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '文旅国发明睿甄选', url: 'http://gfmrzx.example.com:40021/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '仪征集采平台', url: 'http://203.0.113.100:8081/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '赣榆集采平台', url: 'https://www.example.org/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '南京玄武区宁鲜惠邻集采平台', url: 'http://demo.example.net/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '扬州江都集采平台', url: 'http://203.0.113.126:40001/school-meals-admin/' , group: '1.0集采正式'},
+            { name: '机关食堂集采平台', url: 'http://203.0.113.51:13307/school-meals-admin/' , group: '1.0集采正式'},
+
+            { name: '经开区东湖甄选预发', url: 'http://xsygjcyf.example.net/huaian-school-meals-admin/' , group: '1.0集采预发'},
+            { name: '淮安区名城预发', url: 'http://mingcheng.example.com/huaian-school-meals-admin/' , group: '1.0集采预发'},
+            { name: '清江浦区预发', url: 'http://qjpqygjcyf.example.com/school-meals-admin/' , group: '1.0集采预发'},
+            // { name: '文旅国发明睿甄选预发', url: 'http://203.0.113.8/huaian-school-meals-admin/' , group: '1.0集采预发'},
+            { name: '文旅国发明睿甄选预发', url: 'http://stwlyf.example.com:40001/school-meals-admin/' , group: '1.0集采预发'},
+            { name: '赣榆集采预发', url: 'http://gyygjcyf.example.com:4001/school-meals-admin/' , group: '1.0集采预发'},
+            { name: '南京玄武区宁鲜惠邻预发', url: 'http://203.0.113.50:13307/school-meals-admin/' , group: '1.0集采预发'},
+            { name: '扬州江都集采平台预发', url: 'http://203.0.113.117:40001/school-meals-admin/' , group: '1.0集采预发'},
+ 
+            { name: '南京宁鲜惠邻集采平台测试', url: 'http://192.0.2.142:18017/school-meals-admin/', group: '测试环境-142' },
+            { name: '康石测试', url: 'http://192.0.2.142:18014/manage/', group: '测试环境-142' },
+            { name: '赣榆集采测试', url: 'http://192.0.2.142:18015/school-meals-admin/', group: '测试环境-142' },
+            { name: '盱眙平台测试', url: 'http://192.0.2.142:18016/school-meals-admin/', group: '测试环境-142' },
+            { name: '东湖甄选测试', url: 'http://192.0.2.142:18018/school-meals-admin/', group: '测试环境-142' },
+            { name: '生态文旅测试', url: 'http://192.0.2.142:18019/school-meals-admin/', group: '测试环境-142' },
+            { name: '扬州江都测试', url: 'http://192.0.2.142:18020/school-meals-admin/', group: '测试环境-142' },
+            { name: '玄武机关测试', url: 'http://192.0.2.142:18021/school-meals-admin/', group: '测试环境-142' },
+
+            { name: 'zipkin', url: 'http://192.0.2.142:9411/zipkin/' , group: '工具'},
+            { name: '夜莺', url: 'http://192.0.2.111:17000/' , group: '工具'}
+        ];
+
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = '';
+
+            const groups = {};
+            data.forEach(item => {
+                if (!groups[item.group]) {
+                    groups[item.group] = [];
+                }
+                groups[item.group].push(item);
+            });
+
+            for (const groupName in groups) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'group';
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'group-header';
+                headerDiv.onclick = () => {
+                    const grid = groupDiv.querySelector('.grid-container');
+                    const triangle = groupDiv.querySelector('.triangle');
+                    grid.classList.toggle('collapsed');
+                    triangle.classList.toggle('collapsed');
+                };
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'group-name';
+                nameSpan.textContent = groupName;
+
+                const triangleDiv = document.createElement('div');
+                triangleDiv.className = 'triangle';
+
+                headerDiv.appendChild(nameSpan);
+                headerDiv.appendChild(triangleDiv);
+
+                const gridDiv = document.createElement('div');
+                gridDiv.className = 'grid-container';
+
+                groups[groupName].forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'grid-item';
+                    const hue = Math.floor(Math.random() * 360);
+                    itemDiv.style.background = `linear-gradient(to bottom, hsl(${hue}, 30%, 70%), hsl(${hue}, 30%, 50%))`;
+                    itemDiv.onclick = () => window.open(item.url, '_blank');
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'item-name';
+                    nameDiv.textContent = item.name;
+
+                    itemDiv.appendChild(nameDiv);
+                    gridDiv.appendChild(itemDiv);
+                });
+
+                groupDiv.appendChild(headerDiv);
+                groupDiv.appendChild(gridDiv);
+                app.appendChild(groupDiv);
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>

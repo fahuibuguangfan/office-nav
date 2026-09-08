@@ -1,0 +1,6 @@
+{
+  "allowedPackages": [
+    "core-js",
+    "vue-demi"
+  ]
+}

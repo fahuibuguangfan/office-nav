@@ -1,0 +1,6 @@
+{
+  "approvedBuilds": {
+    "core-js": true,
+    "vue-demi": true
+  }
+}
