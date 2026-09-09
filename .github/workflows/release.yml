@@ -59,12 +59,15 @@ jobs:
         if: matrix.platform == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin'
         run: |
           # ARM runner 上装 x86_64 版 OpenSSL（Rosetta 2），供交叉编译 Intel 目标链接
-          /usr/sbin/sysctl -in sysctl.proc_translated 2>/dev/null || true
+          # HOMEBREW_* 环境变量：屏蔽 postinstall 失败和 PATH 提示，避免非致命错误中断脚本
+          export HOMEBREW_NO_ENV_HINTS=1
+          export HOMEBREW_NO_INSTALL_CLEANUP=1
           softwareupdate --install-rosetta --agree-to-license 2>/dev/null || true
           if [ ! -x /usr/local/bin/brew ]; then
-            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
           fi
-          arch -x86_64 /usr/local/bin/brew install openssl@3
+          arch -x86_64 /usr/local/bin/brew install openssl@3 || arch -x86_64 /usr/local/bin/brew link openssl@3 || true
+          ls -d /usr/local/opt/openssl@3
           echo "OPENSSL_DIR=/usr/local/opt/openssl@3" >> $GITHUB_ENV
           echo "OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include" >> $GITHUB_ENV
           echo "OPENSSL_LIB_DIR=/usr/local/opt/openssl@3/lib" >> $GITHUB_ENV
