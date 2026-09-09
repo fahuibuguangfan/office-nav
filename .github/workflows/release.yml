@@ -58,7 +58,12 @@ jobs:
       - name: Install macOS Intel OpenSSL
         if: matrix.platform == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin'
         run: |
-          # ARM runner 上装 x86_64 版 OpenSSL（Rosetta），供交叉编译 Intel 目标链接
+          # ARM runner 上装 x86_64 版 OpenSSL（Rosetta 2），供交叉编译 Intel 目标链接
+          /usr/sbin/sysctl -in sysctl.proc_translated 2>/dev/null || true
+          softwareupdate --install-rosetta --agree-to-license 2>/dev/null || true
+          if [ ! -x /usr/local/bin/brew ]; then
+            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
           arch -x86_64 /usr/local/bin/brew install openssl@3
           echo "OPENSSL_DIR=/usr/local/opt/openssl@3" >> $GITHUB_ENV
           echo "OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include" >> $GITHUB_ENV
