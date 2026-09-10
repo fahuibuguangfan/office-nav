@@ -7,7 +7,7 @@ mod commands;
 pub mod services;
 pub mod utils;
 
-use commands::{data, config, autostart, shell, version, upload, update};
+use commands::{data, config, autostart, shell, version, upload, update, local_links, portable};
 use tauri::{Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
 use utils::lock::PublishLockManager;
 
@@ -23,6 +23,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 初始化发布锁管理器
             app.manage(PublishLockManager::new());
@@ -74,6 +76,10 @@ pub fn run() {
             update::get_current_version,
             update::get_current_platform,
             update::compare_versions,
+            local_links::get_local_links,
+            local_links::save_local_links,
+            portable::export_config,
+            portable::import_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

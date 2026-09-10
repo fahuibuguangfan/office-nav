@@ -1,13 +1,14 @@
 {
-  "version": "1.0.1",
-  "release_date": "2026-09-08",
+  "version": "1.1.0",
+  "release_date": "2026-09-10",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.0.1/_1.0.1_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.0.1/_1.0.1_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.0.1/_1.0.1_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.1.0/_1.1.0_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.1.0/_1.1.0_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.1.0/_1.1.0_amd64.AppImage"
   },
   "update_log": [
-    "新增 macOS 与 Linux 平台支持"
+    "新增配置导入导出：一键备份备注、上传配置等全部本地配置，换机不丢数据（导出文件不含 SSH 密码，导入后需重新填写）",
+    "新增本地服务管理：本地添加的服务独立保存，办公室数据刷新不会覆盖，支持编辑、删除和从 JSON 文件导入"
   ],
   "force_update": false
 }

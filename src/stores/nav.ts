@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { NavLink } from '../api/data'
 import { getCache, fetchLinks as apiFetchLinks } from '../api/data'
+import { getLocalLinks, saveLocalLinks as apiSaveLocalLinks } from '../api/local'
 
 // 模拟数据用于测试
 const mockLinks: NavLink[] = [
@@ -25,17 +26,21 @@ export const useNavStore = defineStore('nav', () => {
   const loading = ref(false)
   const viewMode = ref<'grid' | 'list'>('grid')
 
-  // 加载缓存
+  // 本地链接：独立存储，刷新远程数据不会覆盖，只能通过编辑/删除/导入修改
+  const localLinks = ref<NavLink[]>([])
+
+  // 加载缓存（远程缓存 + 本地链接）
   async function loadCache() {
-    const cache = await getCache()
+    const [cache, local] = await Promise.all([getCache(), getLocalLinks().catch(() => [])])
     if (cache) {
       links.value = cache.links
       updatedAt.value = cache.updated_at
       sourceUrl.value = cache.source_url
     }
+    localLinks.value = local
   }
 
-  // 刷新数据
+  // 刷新数据（仅更新远程数据，本地链接不受影响）
   async function refresh() {
     loading.value = true
     try {
@@ -53,10 +58,29 @@ export const useNavStore = defineStore('nav', () => {
     }
   }
 
+  // 保存本地链接（整体覆盖）
+  async function saveLocalLinks(links: NavLink[]) {
+    await apiSaveLocalLinks(links)
+    localLinks.value = links
+  }
+
   // 按分组归类
   const groups = computed(() => {
     const map = new Map<string, NavLink[]>()
     for (const link of links.value) {
+      const group = link.group || '未分组'
+      if (!map.has(group)) {
+        map.set(group, [])
+      }
+      map.get(group)!.push(link)
+    }
+    return Array.from(map.entries()).map(([name, links]) => ({ name, links }))
+  })
+
+  // 本地链接按分组归类
+  const localGroups = computed(() => {
+    const map = new Map<string, NavLink[]>()
+    for (const link of localLinks.value) {
       const group = link.group || '未分组'
       if (!map.has(group)) {
         map.set(group, [])
@@ -73,7 +97,10 @@ export const useNavStore = defineStore('nav', () => {
     loading,
     viewMode,
     groups,
+    localLinks,
+    localGroups,
     loadCache,
     refresh,
+    saveLocalLinks,
   }
 })
