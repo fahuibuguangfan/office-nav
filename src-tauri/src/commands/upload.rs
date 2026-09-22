@@ -78,13 +78,6 @@ pub async fn publish_to_server(
 ) -> Result<String> {
     use tauri::Emitter;
 
-    let password = match &config.ssh_password {
-        Some(pw) if !pw.is_empty() => {
-            crypto::decrypt_password(pw).map_err(|e| anyhow::anyhow!("密码解密失败: {}", e))?
-        }
-        _ => return Err(anyhow::anyhow!("未配置 SSH 密码").into()),
-    };
-
     // 解析工作目录
     let base_dir = match &config.work_dir {
         Some(d) if !d.trim().is_empty() => PathBuf::from(d.trim()),
@@ -161,252 +154,279 @@ pub async fn publish_to_server(
 
     // 2. 如果勾选了上传到服务器，执行上传流程
     if config.upload_to_server {
+        let _ = app.emit("publish-log", "\n========== 开始上传到服务器 ==========");
+
+        // 解密 SSH 密码
+        let password = match &config.ssh_password {
+            Some(pw) if !pw.is_empty() => {
+                crypto::decrypt_password(pw).map_err(|e| anyhow::anyhow!("密码解密失败: {}", e))?
+            }
+            _ => {
+                let _ = app.emit("publish-log", ">>> 错误: 未配置 SSH 密码");
+                return Err(anyhow::anyhow!("未配置 SSH 密码").into());
+            }
+        };
+
         // 解析本地构建目录
-    let local_dir = if config.local_dir.starts_with('.') || !PathBuf::from(&config.local_dir).is_absolute() {
-        base_dir.join(&config.local_dir)
-    } else {
-        PathBuf::from(&config.local_dir)
-    };
-
-    let _ = app.emit("publish-log", format!("\n>>> 检查构建目录: {}", local_dir.display()));
-
-    if !local_dir.is_dir() {
-        let _ = app.emit("publish-log", format!(">>> 错误: 构建目录不存在"));
-        return Err(anyhow::anyhow!("构建目录不存在: {}", local_dir.display()).into());
-    }
-
-    let _ = app.emit("publish-log", format!(">>> 构建目录验证通过"));
-
-    // 2. 打包构建产物为 .zip
-    let _ = app.emit("publish-log", "\n========== 开始打包构建产物 ==========");
-
-    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-    let zip_name = format!("build_{}.zip", timestamp);
-    let zip_path = std::env::temp_dir().join(&zip_name);
-
-    let _ = app.emit("publish-log", format!(">>> 压缩文件: {}", zip_path.display()));
-
-    create_zip(&local_dir, &zip_path)?;
-    let zip_size = zip_path.metadata()?.len();
-    let _ = app.emit(
-        "publish-log",
-        format!(">>> 打包完成: {} ({:.2} MB)", zip_name, zip_size as f64 / 1024.0 / 1024.0),
-    );
-
-    // 3. 连接 SSH 并上传
-    let _ = app.emit("publish-log", format!("\n========== 连接 SSH 服务器 =========="));
-    let _ = app.emit("publish-log", format!(">>> 主机: {}:{}", config.ssh_host, config.ssh_port));
-    let _ = app.emit("publish-log", format!(">>> 用户: {}", config.ssh_user));
-    let _ = app.emit("publish-log", format!(">>> 远程目录: {}", config.remote_dir));
-
-    let config_clone = config.clone();
-    let zip_path_clone = zip_path.clone();
-    let app_clone = app.clone();
-    let base_dir_clone = base_dir.clone();
-
-    let result = tokio::task::spawn_blocking(move || -> Result<String> {
-        let tcp = match TcpStream::connect(format!("{}:{}", config_clone.ssh_host, config_clone.ssh_port)) {
-            Ok(stream) => {
-                let _ = app_clone.emit("publish-log", ">>> TCP 连接成功");
-                stream
-            }
-            Err(e) => {
-                let _ = app_clone.emit("publish-log", format!(">>> TCP 连接失败: {}", e));
-                return Err(anyhow::anyhow!("TCP 连接失败: {}", e).into());
-            }
-        };
-
-        let mut sess = match Session::new() {
-            Ok(s) => {
-                let _ = app_clone.emit("publish-log", ">>> SSH 会话创建成功");
-                s
-            }
-            Err(e) => {
-                let _ = app_clone.emit("publish-log", format!(">>> SSH 会话创建失败: {}", e));
-                return Err(anyhow::anyhow!("SSH 会话创建失败: {}", e).into());
-            }
-        };
-
-        sess.set_tcp_stream(tcp);
-
-        if let Err(e) = sess.handshake() {
-            let _ = app_clone.emit("publish-log", format!(">>> SSH 握手失败: {}", e));
-            return Err(anyhow::anyhow!("SSH 握手失败: {}", e).into());
-        }
-        let _ = app_clone.emit("publish-log", ">>> SSH 握手完成");
-
-        if let Err(e) = sess.userauth_password(&config_clone.ssh_user, &password) {
-            let _ = app_clone.emit("publish-log", format!(">>> SSH 认证失败: {}", e));
-            return Err(anyhow::anyhow!("SSH 认证失败: {}", e).into());
-        }
-        let _ = app_clone.emit("publish-log", ">>> SSH 认证成功");
-
-        if !sess.authenticated() {
-            let _ = app_clone.emit("publish-log", ">>> 错误: SSH 认证状态检查失败");
-            return Err(anyhow::anyhow!("SSH 认证未通过").into());
-        }
-
-        let _ = app_clone.emit("publish-log", "\n========== 上传压缩包 ==========");
-
-        // 上传压缩包
-        let remote_zip = format!("/tmp/{}", zip_name);
-        let _ = app_clone.emit("publish-log", format!(">>> 目标路径: {}", remote_zip));
-
-        let mut remote_file = match sess.scp_send(Path::new(&remote_zip), 0o644, zip_path_clone.metadata()?.len(), None) {
-            Ok(f) => {
-                let _ = app_clone.emit("publish-log", ">>> SCP 通道创建成功");
-                f
-            }
-            Err(e) => {
-                let _ = app_clone.emit("publish-log", format!(">>> SCP 通道创建失败: {}", e));
-                return Err(anyhow::anyhow!("创建 SCP 上传失败: {}", e).into());
-            }
-        };
-
-        let mut local_file = match std::fs::File::open(&zip_path_clone) {
-            Ok(f) => f,
-            Err(e) => {
-                let _ = app_clone.emit("publish-log", format!(">>> 打开本地文件失败: {}", e));
-                return Err(anyhow::anyhow!("打开本地压缩包失败: {}", e).into());
-            }
-        };
-
-        let _ = app_clone.emit("publish-log", ">>> 开始传输...");
-        match std::io::copy(&mut local_file, &mut remote_file) {
-            Ok(bytes) => {
-                let _ = app_clone.emit("publish-log", format!(">>> 传输完成: {:.2} MB", bytes as f64 / 1024.0 / 1024.0));
-            }
-            Err(e) => {
-                let _ = app_clone.emit("publish-log", format!(">>> 传输失败: {}", e));
-                return Err(anyhow::anyhow!("上传失败: {}", e).into());
-            }
-        }
-
-        remote_file.send_eof().ok();
-        remote_file.wait_eof().ok();
-        remote_file.close().ok();
-        remote_file.wait_close().ok();
-
-        let _ = app_clone.emit("publish-log", ">>> 上传完成");
-
-        // 远程备份旧目录
-        let _ = app_clone.emit("publish-log", "\n========== 备份远程目录 ==========");
-        let remote_dir = config_clone.remote_dir.trim();
-        let backup_dir = format!("{}.backup_{}", remote_dir, timestamp);
-
-        let _ = app_clone.emit("publish-log", format!(">>> 源目录: {}", remote_dir));
-        let _ = app_clone.emit("publish-log", format!(">>> 备份至: {}", backup_dir));
-
-        let backup_cmd = format!(
-            "if [ -d '{}' ]; then mv '{}' '{}'; echo 'backup_ok'; else echo 'no_old_dir'; fi",
-            remote_dir, remote_dir, backup_dir
-        );
-
-        let _ = app_clone.emit("publish-log", ">>> 执行备份命令...");
-        let backup_result = match exec_ssh_command(&sess, &backup_cmd) {
-            Ok(output) => {
-                let _ = app_clone.emit("publish-log", format!(">>> 备份命令输出: {}", output.trim()));
-                output
-            }
-            Err(e) => {
-                let _ = app_clone.emit("publish-log", format!(">>> 备份命令失败: {}", e));
-                return Err(e);
-            }
-        };
-
-        let had_backup = backup_result.contains("backup_ok");
-        if had_backup {
-            let _ = app_clone.emit("publish-log", ">>> 旧目录已备份");
+        let local_dir = if config.local_dir.starts_with('.') || !PathBuf::from(&config.local_dir).is_absolute() {
+            base_dir.join(&config.local_dir)
         } else {
-            let _ = app_clone.emit("publish-log", ">>> 远程目录不存在，跳过备份");
+            PathBuf::from(&config.local_dir)
+        };
+
+        let _ = app.emit("publish-log", format!("\n>>> 检查构建目录: {}", local_dir.display()));
+
+        if !local_dir.is_dir() {
+            let _ = app.emit("publish-log", format!(">>> 错误: 构建目录不存在"));
+            return Err(anyhow::anyhow!("构建目录不存在: {}", local_dir.display()).into());
         }
 
-        // 解压到目标目录
-        let _ = app_clone.emit("publish-log", "\n========== 解压构建产物 ==========");
-        let _ = app_clone.emit("publish-log", format!(">>> 目标目录: {}", remote_dir));
+        let _ = app.emit("publish-log", format!(">>> 构建目录验证通过"));
 
-        let unzip_cmd = format!(
-            "mkdir -p '{}' && unzip -o '{}' -d '{}' && echo 'unzip_ok'",
-            remote_dir, remote_zip, remote_dir
+        // 打包构建产物为 .zip
+        let _ = app.emit("publish-log", "\n========== 开始打包构建产物 ==========");
+
+        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+        let zip_name = format!("build_{}.zip", timestamp);
+        let zip_path = std::env::temp_dir().join(&zip_name);
+
+        let _ = app.emit("publish-log", format!(">>> 压缩文件: {}", zip_path.display()));
+
+        create_zip(&local_dir, &zip_path)?;
+        let zip_size = zip_path.metadata()?.len();
+        let _ = app.emit(
+            "publish-log",
+            format!(">>> 打包完成: {} ({:.2} MB)", zip_name, zip_size as f64 / 1024.0 / 1024.0),
         );
 
-        let _ = app_clone.emit("publish-log", ">>> 执行解压命令...");
-        let unzip_result = exec_ssh_command(&sess, &unzip_cmd);
+        // 连接 SSH 并上传
+        let _ = app.emit("publish-log", format!("\n========== 连接 SSH 服务器 =========="));
+        let _ = app.emit("publish-log", format!(">>> 主机: {}:{}", config.ssh_host, config.ssh_port));
+        let _ = app.emit("publish-log", format!(">>> 用户: {}", config.ssh_user));
+        let _ = app.emit("publish-log", format!(">>> 远程目录: {}", config.remote_dir));
 
-        match unzip_result {
-            Ok(output) if output.contains("unzip_ok") => {
-                let _ = app_clone.emit("publish-log", ">>> 解压成功");
-                if !output.trim().is_empty() {
-                    let lines: Vec<&str> = output.lines().take(10).collect();
-                    let _ = app_clone.emit("publish-log", format!(">>> 解压输出(前10行):\n{}", lines.join("\n")));
+        let config_clone = config.clone();
+        let zip_path_clone = zip_path.clone();
+        let app_clone = app.clone();
+        let base_dir_clone = base_dir.clone();
+
+        let result = tokio::task::spawn_blocking(move || -> Result<String> {
+            let tcp = match TcpStream::connect(format!("{}:{}", config_clone.ssh_host, config_clone.ssh_port)) {
+                Ok(stream) => {
+                    let _ = app_clone.emit("publish-log", ">>> TCP 连接成功");
+                    stream
                 }
+                Err(e) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> TCP 连接失败: {}", e));
+                    return Err(anyhow::anyhow!("TCP 连接失败: {}", e).into());
+                }
+            };
 
-                // 修改目录权限为 755（目录和文件都可读可执行，Web 服务器可访问）
-                let _ = app_clone.emit("publish-log", "\n========== 修改文件权限 ==========");
-                let _ = app_clone.emit("publish-log", format!(">>> 目标: chmod -R 755 {}", remote_dir));
+            let mut sess = match Session::new() {
+                Ok(s) => {
+                    let _ = app_clone.emit("publish-log", ">>> SSH 会话创建成功");
+                    s
+                }
+                Err(e) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> SSH 会话创建失败: {}", e));
+                    return Err(anyhow::anyhow!("SSH 会话创建失败: {}", e).into());
+                }
+            };
 
-                let chmod_result = exec_ssh_command(&sess, &format!("chmod -R 755 '{}'", remote_dir));
+            sess.set_tcp_stream(tcp);
 
-                match chmod_result {
-                    Ok(_) => {
-                        let _ = app_clone.emit("publish-log", ">>> 权限修改成功");
+            if let Err(e) = sess.handshake() {
+                let _ = app_clone.emit("publish-log", format!(">>> SSH 握手失败: {}", e));
+                return Err(anyhow::anyhow!("SSH 握手失败: {}", e).into());
+            }
+            let _ = app_clone.emit("publish-log", ">>> SSH 握手完成");
+
+            if let Err(e) = sess.userauth_password(&config_clone.ssh_user, &password) {
+                let _ = app_clone.emit("publish-log", format!(">>> SSH 认证失败: {}", e));
+                return Err(anyhow::anyhow!("SSH 认证失败: {}", e).into());
+            }
+            let _ = app_clone.emit("publish-log", ">>> SSH 认证成功");
+
+            if !sess.authenticated() {
+                let _ = app_clone.emit("publish-log", ">>> 错误: SSH 认证状态检查失败");
+                return Err(anyhow::anyhow!("SSH 认证未通过").into());
+            }
+
+            let _ = app_clone.emit("publish-log", "\n========== 上传压缩包 ==========");
+
+            // 上传压缩包
+            let remote_zip = format!("/tmp/{}", zip_name);
+            let _ = app_clone.emit("publish-log", format!(">>> 目标路径: {}", remote_zip));
+
+            let mut remote_file = match sess.scp_send(Path::new(&remote_zip), 0o644, zip_path_clone.metadata()?.len(), None) {
+                Ok(f) => {
+                    let _ = app_clone.emit("publish-log", ">>> SCP 通道创建成功");
+                    f
+                }
+                Err(e) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> SCP 通道创建失败: {}", e));
+                    return Err(anyhow::anyhow!("创建 SCP 上传失败: {}", e).into());
+                }
+            };
+
+            let mut local_file = match std::fs::File::open(&zip_path_clone) {
+                Ok(f) => f,
+                Err(e) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> 打开本地文件失败: {}", e));
+                    return Err(anyhow::anyhow!("打开本地压缩包失败: {}", e).into());
+                }
+            };
+
+            let _ = app_clone.emit("publish-log", ">>> 开始传输...");
+            match std::io::copy(&mut local_file, &mut remote_file) {
+                Ok(bytes) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> 传输完成: {:.2} MB", bytes as f64 / 1024.0 / 1024.0));
+                }
+                Err(e) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> 传输失败: {}", e));
+                    return Err(anyhow::anyhow!("上传失败: {}", e).into());
+                }
+            }
+
+            remote_file.send_eof().ok();
+            remote_file.wait_eof().ok();
+            remote_file.close().ok();
+            remote_file.wait_close().ok();
+
+            let _ = app_clone.emit("publish-log", ">>> 上传完成");
+
+            // 远程备份旧目录
+            let _ = app_clone.emit("publish-log", "\n========== 备份远程目录 ==========");
+            let remote_dir = config_clone.remote_dir.trim();
+            let backup_dir = format!("{}.backup_{}", remote_dir, timestamp);
+
+            let _ = app_clone.emit("publish-log", format!(">>> 源目录: {}", remote_dir));
+            let _ = app_clone.emit("publish-log", format!(">>> 备份至: {}", backup_dir));
+
+            let backup_cmd = format!(
+                "if [ -d '{}' ]; then mv '{}' '{}'; echo 'backup_ok'; else echo 'no_old_dir'; fi",
+                remote_dir, remote_dir, backup_dir
+            );
+
+            let _ = app_clone.emit("publish-log", ">>> 执行备份命令...");
+            let backup_result = match exec_ssh_command(&sess, &backup_cmd) {
+                Ok(output) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> 备份命令输出: {}", output.trim()));
+                    output
+                }
+                Err(e) => {
+                    let _ = app_clone.emit("publish-log", format!(">>> 备份命令失败: {}", e));
+                    return Err(e);
+                }
+            };
+
+            let had_backup = backup_result.contains("backup_ok");
+            if had_backup {
+                let _ = app_clone.emit("publish-log", ">>> 旧目录已备份");
+            } else {
+                let _ = app_clone.emit("publish-log", ">>> 远程目录不存在，跳过备份");
+            }
+
+            // 解压到目标目录
+            let _ = app_clone.emit("publish-log", "\n========== 解压构建产物 ==========");
+            let _ = app_clone.emit("publish-log", format!(">>> 目标目录: {}", remote_dir));
+
+            let unzip_cmd = format!(
+                "mkdir -p '{}' && unzip -o '{}' -d '{}' && echo 'unzip_ok'",
+                remote_dir, remote_zip, remote_dir
+            );
+
+            let _ = app_clone.emit("publish-log", ">>> 执行解压命令...");
+            let unzip_result = exec_ssh_command(&sess, &unzip_cmd);
+
+            match unzip_result {
+                Ok(output) if output.contains("unzip_ok") => {
+                    let _ = app_clone.emit("publish-log", ">>> 解压成功");
+                    if !output.trim().is_empty() {
+                        let lines: Vec<&str> = output.lines().take(10).collect();
+                        let _ = app_clone.emit("publish-log", format!(">>> 解压输出(前10行):\n{}", lines.join("\n")));
                     }
-                    Err(e) => {
-                        let _ = app_clone.emit("publish-log", format!(">>> 权限修改失败（可能影响访问）: {}", e));
+
+                    // 修改目录权限为 755（目录和文件都可读可执行，Web 服务器可访问）
+                    let _ = app_clone.emit("publish-log", "\n========== 修改文件权限 ==========");
+                    let _ = app_clone.emit("publish-log", format!(">>> 目标: chmod -R 755 {}", remote_dir));
+
+                    let chmod_result = exec_ssh_command(&sess, &format!("chmod -R 755 '{}'", remote_dir));
+
+                    match chmod_result {
+                        Ok(_) => {
+                            let _ = app_clone.emit("publish-log", ">>> 权限修改成功");
+                        }
+                        Err(e) => {
+                            let _ = app_clone.emit("publish-log", format!(">>> 权限修改失败（可能影响访问）: {}", e));
+                        }
                     }
-                }
 
-                // 成功：删除备份和远程压缩包
-                let _ = app_clone.emit("publish-log", "\n========== 清理临时文件 ==========");
+                    // 成功：删除备份和远程压缩包
+                    let _ = app_clone.emit("publish-log", "\n========== 清理临时文件 ==========");
 
-                if had_backup {
-                    let _ = app_clone.emit("publish-log", format!(">>> 删除备份: {}", backup_dir));
-                    let _ = exec_ssh_command(&sess, &format!("rm -rf '{}'", backup_dir));
-                    let _ = app_clone.emit("publish-log", ">>> 备份目录已删除");
-                }
+                    if had_backup {
+                        let _ = app_clone.emit("publish-log", format!(">>> 删除备份: {}", backup_dir));
+                        let _ = exec_ssh_command(&sess, &format!("rm -rf '{}'", backup_dir));
+                        let _ = app_clone.emit("publish-log", ">>> 备份目录已删除");
+                    }
 
-                let _ = app_clone.emit("publish-log", format!(">>> 删除临时压缩包: {}", remote_zip));
-                let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
-                let _ = app_clone.emit("publish-log", ">>> 临时文件已清理");
+                    let _ = app_clone.emit("publish-log", format!(">>> 删除临时压缩包: {}", remote_zip));
+                    let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
+                    let _ = app_clone.emit("publish-log", ">>> 临时文件已清理");
 
-                // 创建 Git 标签（如果勾选）
-                if config_clone.create_tag {
-                    let _ = app_clone.emit("publish-log", "\n========== 创建 Git 标签 ==========");
+                    // 创建 Git 标签（如果勾选）
+                    if config_clone.create_tag {
+                        let _ = app_clone.emit("publish-log", "\n========== 创建 Git 标签 ==========");
 
-                    if git::is_git_repo(&base_dir_clone) {
-                        let _ = app_clone.emit("publish-log", ">>> 检测到 Git 仓库");
-                        match create_git_tag(&base_dir_clone) {
-                            Ok(tag_info) => {
-                                let _ = app_clone.emit("publish-log", format!(">>> {}", tag_info));
+                        if git::is_git_repo(&base_dir_clone) {
+                            let _ = app_clone.emit("publish-log", ">>> 检测到 Git 仓库");
+                            match create_git_tag(&base_dir_clone) {
+                                Ok(tag_info) => {
+                                    let _ = app_clone.emit("publish-log", format!(">>> {}", tag_info));
 
-                                // 发送系统通知
-                                let notification_body = format!("已成功发布到 {}:{}\n{}", config_clone.ssh_host, remote_dir, tag_info);
-                                let _ = app_clone.notification()
-                                    .builder()
-                                    .title("发布成功")
-                                    .body(&notification_body)
-                                    .show();
+                                    // 发送系统通知
+                                    let notification_body = format!("已成功发布到 {}:{}\n{}", config_clone.ssh_host, remote_dir, tag_info);
+                                    let _ = app_clone.notification()
+                                        .builder()
+                                        .title("发布成功")
+                                        .body(&notification_body)
+                                        .show();
 
-                                let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
-                                Ok(format!("发布成功：{}\n{}", remote_dir, tag_info))
+                                    let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
+                                    Ok(format!("发布成功：{}\n{}", remote_dir, tag_info))
+                                }
+                                Err(e) => {
+                                    let _ = app_clone.emit("publish-log", format!(">>> 创建标签失败: {}", e));
+
+                                    // 发送系统通知
+                                    let notification_body = format!("已成功发布到 {}:{}\n标签创建失败: {}", config_clone.ssh_host, remote_dir, e);
+                                    let _ = app_clone.notification()
+                                        .builder()
+                                        .title("发布成功")
+                                        .body(&notification_body)
+                                        .show();
+
+                                    let _ = app_clone.emit("publish-log", "\n========== 部署完成（标签创建失败） ==========");
+                                    Ok(format!("发布成功：{}（标签创建失败: {}）", remote_dir, e))
+                                }
                             }
-                            Err(e) => {
-                                let _ = app_clone.emit("publish-log", format!(">>> 创建标签失败: {}", e));
+                        } else {
+                            let _ = app_clone.emit("publish-log", ">>> 当前目录不是 Git 仓库，跳过标签创建");
 
-                                // 发送系统通知
-                                let notification_body = format!("已成功发布到 {}:{}\n标签创建失败: {}", config_clone.ssh_host, remote_dir, e);
-                                let _ = app_clone.notification()
-                                    .builder()
-                                    .title("发布成功")
-                                    .body(&notification_body)
-                                    .show();
+                            // 发送系统通知
+                            let notification_body = format!("已成功发布到 {}:{}", config_clone.ssh_host, remote_dir);
+                            let _ = app_clone.notification()
+                                .builder()
+                                .title("发布成功")
+                                .body(&notification_body)
+                                .show();
 
-                                let _ = app_clone.emit("publish-log", "\n========== 部署完成（标签创建失败） ==========");
-                                Ok(format!("发布成功：{}（标签创建失败: {}）", remote_dir, e))
-                            }
+                            let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
+                            Ok(format!("发布成功：{}", remote_dir))
                         }
                     } else {
-                        let _ = app_clone.emit("publish-log", ">>> 当前目录不是 Git 仓库，跳过标签创建");
+                        let _ = app_clone.emit("publish-log", "\n========== 跳过 Git 标签创建 ==========");
 
                         // 发送系统通知
                         let notification_body = format!("已成功发布到 {}:{}", config_clone.ssh_host, remote_dir);
@@ -419,93 +439,79 @@ pub async fn publish_to_server(
                         let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
                         Ok(format!("发布成功：{}", remote_dir))
                     }
-                } else {
-                    let _ = app_clone.emit("publish-log", "\n========== 跳过 Git 标签创建 ==========");
-
-                    // 发送系统通知
-                    let notification_body = format!("已成功发布到 {}:{}", config_clone.ssh_host, remote_dir);
-                    let _ = app_clone.notification()
-                        .builder()
-                        .title("发布成功")
-                        .body(&notification_body)
-                        .show();
-
-                    let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
-                    Ok(format!("发布成功：{}", remote_dir))
                 }
-            }
-            Ok(output) => {
-                // 失败：还原备份
-                let _ = app_clone.emit("publish-log", "\n========== 解压失败，开始回滚 ==========");
-                let _ = app_clone.emit("publish-log", format!(">>> 解压命令输出:\n{}", output));
+                Ok(output) => {
+                    // 失败：还原备份
+                    let _ = app_clone.emit("publish-log", "\n========== 解压失败，开始回滚 ==========");
+                    let _ = app_clone.emit("publish-log", format!(">>> 解压命令输出:\n{}", output));
 
-                if had_backup {
-                    let _ = app_clone.emit("publish-log", format!(">>> 还原备份: {} -> {}", backup_dir, remote_dir));
-                    let restore_cmd = format!(
-                        "rm -rf '{}' && mv '{}' '{}' && echo 'restore_ok'",
-                        remote_dir, backup_dir, remote_dir
-                    );
-                    match exec_ssh_command(&sess, &restore_cmd) {
-                        Ok(restore_out) if restore_out.contains("restore_ok") => {
-                            let _ = app_clone.emit("publish-log", ">>> 旧目录已还原");
+                    if had_backup {
+                        let _ = app_clone.emit("publish-log", format!(">>> 还原备份: {} -> {}", backup_dir, remote_dir));
+                        let restore_cmd = format!(
+                            "rm -rf '{}' && mv '{}' '{}' && echo 'restore_ok'",
+                            remote_dir, backup_dir, remote_dir
+                        );
+                        match exec_ssh_command(&sess, &restore_cmd) {
+                            Ok(restore_out) if restore_out.contains("restore_ok") => {
+                                let _ = app_clone.emit("publish-log", ">>> 旧目录已还原");
+                            }
+                            Ok(err_out) => {
+                                let _ = app_clone.emit("publish-log", format!(">>> 还原失败: {}", err_out));
+                            }
+                            Err(e) => {
+                                let _ = app_clone.emit("publish-log", format!(">>> 还原命令执行失败: {}", e));
+                            }
                         }
-                        Ok(err_out) => {
-                            let _ = app_clone.emit("publish-log", format!(">>> 还原失败: {}", err_out));
-                        }
-                        Err(e) => {
-                            let _ = app_clone.emit("publish-log", format!(">>> 还原命令执行失败: {}", e));
-                        }
+                    } else {
+                        let _ = app_clone.emit("publish-log", ">>> 无备份可还原");
                     }
-                } else {
-                    let _ = app_clone.emit("publish-log", ">>> 无备份可还原");
+
+                    let _ = app_clone.emit("publish-log", format!(">>> 清理临时文件: {}", remote_zip));
+                    let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
+
+                    let _ = app_clone.emit("publish-log", "\n========== 部署失败 ==========");
+                    Err(anyhow::anyhow!("解压失败，已还原备份").into())
                 }
+                Err(e) => {
+                    // 失败：还原备份
+                    let _ = app_clone.emit("publish-log", "\n========== 解压命令执行失败，开始回滚 ==========");
+                    let _ = app_clone.emit("publish-log", format!(">>> 错误: {}", e));
 
-                let _ = app_clone.emit("publish-log", format!(">>> 清理临时文件: {}", remote_zip));
-                let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
-
-                let _ = app_clone.emit("publish-log", "\n========== 部署失败 ==========");
-                Err(anyhow::anyhow!("解压失败，已还原备份").into())
-            }
-            Err(e) => {
-                // 失败：还原备份
-                let _ = app_clone.emit("publish-log", "\n========== 解压命令执行失败，开始回滚 ==========");
-                let _ = app_clone.emit("publish-log", format!(">>> 错误: {}", e));
-
-                if had_backup {
-                    let _ = app_clone.emit("publish-log", format!(">>> 还原备份: {} -> {}", backup_dir, remote_dir));
-                    let restore_cmd = format!(
-                        "rm -rf '{}' && mv '{}' '{}' && echo 'restore_ok'",
-                        remote_dir, backup_dir, remote_dir
-                    );
-                    match exec_ssh_command(&sess, &restore_cmd) {
-                        Ok(restore_out) if restore_out.contains("restore_ok") => {
-                            let _ = app_clone.emit("publish-log", ">>> 旧目录已还原");
+                    if had_backup {
+                        let _ = app_clone.emit("publish-log", format!(">>> 还原备份: {} -> {}", backup_dir, remote_dir));
+                        let restore_cmd = format!(
+                            "rm -rf '{}' && mv '{}' '{}' && echo 'restore_ok'",
+                            remote_dir, backup_dir, remote_dir
+                        );
+                        match exec_ssh_command(&sess, &restore_cmd) {
+                            Ok(restore_out) if restore_out.contains("restore_ok") => {
+                                let _ = app_clone.emit("publish-log", ">>> 旧目录已还原");
+                            }
+                            Ok(err_out) => {
+                                let _ = app_clone.emit("publish-log", format!(">>> 还原失败: {}", err_out));
+                            }
+                            Err(e) => {
+                                let _ = app_clone.emit("publish-log", format!(">>> 还原命令执行失败: {}", e));
+                            }
                         }
-                        Ok(err_out) => {
-                            let _ = app_clone.emit("publish-log", format!(">>> 还原失败: {}", err_out));
-                        }
-                        Err(e) => {
-                            let _ = app_clone.emit("publish-log", format!(">>> 还原命令执行失败: {}", e));
-                        }
+                    } else {
+                        let _ = app_clone.emit("publish-log", ">>> 无备份可还原");
                     }
-                } else {
-                    let _ = app_clone.emit("publish-log", ">>> 无备份可还原");
+
+                    let _ = app_clone.emit("publish-log", format!(">>> 清理临时文件: {}", remote_zip));
+                    let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
+
+                    let _ = app_clone.emit("publish-log", "\n========== 部署失败 ==========");
+                    Err(e)
                 }
-
-                let _ = app_clone.emit("publish-log", format!(">>> 清理临时文件: {}", remote_zip));
-                let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
-
-                let _ = app_clone.emit("publish-log", "\n========== 部署失败 ==========");
-                Err(e)
             }
-        }
-    })
-    .await
-    .map_err(|e| {
-        let err_msg = format!("任务执行失败: {}", e);
-        let _ = app.emit("publish-log", format!("\n========== 致命错误 ==========\n>>> {}", err_msg));
-        anyhow::anyhow!(err_msg)
-    })?;
+        })
+        .await
+        .map_err(|e| {
+            let err_msg = format!("任务执行失败: {}", e);
+            let _ = app.emit("publish-log", format!("\n========== 致命错误 ==========\n>>> {}", err_msg));
+            anyhow::anyhow!(err_msg)
+        })?;
 
         // 清理本地临时压缩包
         let _ = std::fs::remove_file(&zip_path);
