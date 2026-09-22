@@ -9,11 +9,11 @@
     :confirm-loading="publishing"
     :ok-button-props="{ disabled: !canPublish }"
     :mask-closable="!publishing"
-    :body-style="{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto' }"
+    :body-style="{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', paddingRight: '24px' }"
     @cancel="handleClose"
     @ok="handlePublish"
   >
-    <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
+    <a-form noStyle :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
       <a-form-item label="主机名 / 端口">
         <a-input-group compact>
           <a-input
@@ -57,18 +57,30 @@
       </a-form-item>
 
       <a-form-item label="工作目录">
-        <a-input
-          v-model:value="uploadConfig.work_dir"
-          placeholder="D:\projects\jicai2（可选）"
-        />
-        <div class="form-tip">命令将在此目录下执行；留空则使用应用启动目录。每次执行都是独立进程，cd 不会跨次保留</div>
+        <a-input-group compact style="display: flex;">
+          <a-input
+            v-model:value="uploadConfig.work_dir"
+            placeholder="D:\projects\jicai2（可选）"
+            style="flex: 1;"
+          />
+          <a-button @click="handleOpenWorkDir" title="打开文件夹" style="flex-shrink: 0;">
+            📁
+          </a-button>
+        </a-input-group>
+        <div class="form-tip">命令执行目录，留空则使用应用启动目录。每次执行是独立进程，cd 不会保留</div>
       </a-form-item>
 
       <a-form-item label="构建目录">
-        <a-input
-          v-model:value="uploadConfig.local_dir"
-          placeholder="本地构建产物目录，例如：./dist"
-        />
+        <a-input-group compact style="display: flex;">
+          <a-input
+            v-model:value="uploadConfig.local_dir"
+            placeholder="本地构建产物目录，例如：./dist"
+            style="flex: 1;"
+          />
+          <a-button @click="handleOpenLocalDir" title="打开文件夹" style="flex-shrink: 0;">
+            📁
+          </a-button>
+        </a-input-group>
       </a-form-item>
 
       <a-form-item label="远程目录">
@@ -217,7 +229,7 @@ const uploadConfig = ref<UploadConfig>({
   ssh_password: '',
   pre_command: '',
   work_dir: '',
-  timeout_secs: 60,
+  timeout_secs: 180,
   enable_pre_command: false,
   upload_to_server: true,
   create_tag: false,
@@ -375,6 +387,44 @@ function handleStopCommand() {
   executing.value = false
   commandOutput.value += '\n\n[已停止]'
   message.info('命令已停止')
+}
+
+// 选择工作目录
+async function handleOpenWorkDir() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      defaultPath: uploadConfig.value.work_dir || undefined,
+    })
+
+    if (selected) {
+      uploadConfig.value.work_dir = selected as string
+    }
+  } catch (error) {
+    console.error('选择文件夹失败:', error)
+    message.error(`选择文件夹失败: ${error}`)
+  }
+}
+
+// 选择构建目录
+async function handleOpenLocalDir() {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      defaultPath: uploadConfig.value.local_dir || undefined,
+    })
+
+    if (selected) {
+      uploadConfig.value.local_dir = selected as string
+    }
+  } catch (error) {
+    console.error('选择文件夹失败:', error)
+    message.error(`选择文件夹失败: ${error}`)
+  }
 }
 
 // 关闭弹窗前确保未落盘的编辑不丢（立即保存一次）

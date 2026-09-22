@@ -69,6 +69,7 @@ pub fn run() {
             autostart::disable_autostart,
             shell::resolve_hostname,
             shell::execute_command,
+            shell::open_folder,
             version::fetch_version_info,
             upload::test_ssh_connection,
             upload::publish_to_server,

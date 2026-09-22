@@ -409,3 +409,43 @@ pub fn execute_command_sync(
         timed_out,
     })
 }
+
+/// 打开本地文件夹
+#[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), String> {
+    // 检查路径是否存在
+    let path_obj = std::path::Path::new(&path);
+    if !path_obj.exists() {
+        return Err(format!("路径不存在: {}", path));
+    }
+
+    if !path_obj.is_dir() {
+        return Err(format!("不是有效的文件夹: {}", path));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("打开文件夹失败: {}", e))?;
+    }
+
+    Ok(())
+}
