@@ -60,7 +60,8 @@ pub async fn execute_command(
     timeout_secs: Option<u64>,
 ) -> Result<CommandResult, String> {
     use tauri::Emitter;
-    use std::io::Read;
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::process::Command;
 
     // 记录执行的命令
     eprintln!("执行命令: {}", command);
@@ -105,7 +106,6 @@ pub async fn execute_command(
     }
 
     cmd_builder.current_dir(&dir);
-    // 管道捕获输出，供轮询期间增量读取
     cmd_builder.stdout(std::process::Stdio::piped());
     cmd_builder.stderr(std::process::Stdio::piped());
 
@@ -113,100 +113,114 @@ pub async fn execute_command(
         .spawn()
         .map_err(|e| format!("启动命令失败: {}", e))?;
 
-    let pid = child.id();
+    let pid = child.id().ok_or("无法获取进程 ID")?;
 
-    // 提前取出管道句柄，避免 wait_with_output 与轮询竞争
-    let mut stdout_pipe = child.stdout.take();
-    let mut stderr_pipe = child.stderr.take();
+    let stdout = child.stdout.take().ok_or("无法获取 stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 stderr")?;
 
-    // 等待进程退出或超时，期间增量读取管道输出并推送给前端
-    let start = std::time::Instant::now();
+    let mut stdout_lines = BufReader::new(stdout).lines();
+    let mut stderr_lines = BufReader::new(stderr).lines();
+
+    let mut stdout_buf = Vec::new();
+    let mut stderr_buf = Vec::new();
+
+    let timeout_future = tokio::time::sleep(timeout);
+    tokio::pin!(timeout_future);
+
     let mut timed_out = false;
-    let mut stdout_buf: Vec<u8> = Vec::new();
-    let mut stderr_buf: Vec<u8> = Vec::new();
+    let mut exit_status = None;
 
+    // 并发读取输出和监控进程退出/超时
     loop {
-        match child.try_wait() {
-            Ok(Some(_)) => break,
-            Ok(None) => {
-                // 非阻塞地读走管道里已有的数据，防止管道写满阻塞子进程
-                if let Some(pipe) = stdout_pipe.as_mut() {
-                    let mut chunk = [0u8; 4096];
-                    while let Ok(n) = pipe.read(&mut chunk) {
-                        if n == 0 { break; }
-                        stdout_buf.extend_from_slice(&chunk[..n]);
-                        let text = String::from_utf8_lossy(&chunk[..n]).to_string();
+        tokio::select! {
+            // 进程退出
+            status = child.wait() => {
+                match status {
+                    Ok(s) => {
+                        exit_status = Some(s);
+                        break;
+                    }
+                    Err(e) => {
+                        return Err(format!("等待命令退出失败: {}", e));
+                    }
+                }
+            }
+
+            // stdout 有新行
+            line = stdout_lines.next_line() => {
+                match line {
+                    Ok(Some(line)) => {
+                        stdout_buf.push(line.clone());
                         let _ = app.emit("command-output", serde_json::json!({
                             "stream": "stdout",
-                            "data": text,
+                            "data": format!("{}\n", line),
                         }));
                     }
+                    Ok(None) => {
+                        // stdout 已关闭，继续监听其他流
+                    }
+                    Err(e) => {
+                        eprintln!("读取 stdout 失败: {}", e);
+                    }
                 }
-                if let Some(pipe) = stderr_pipe.as_mut() {
-                    let mut chunk = [0u8; 4096];
-                    while let Ok(n) = pipe.read(&mut chunk) {
-                        if n == 0 { break; }
-                        stderr_buf.extend_from_slice(&chunk[..n]);
-                        let text = String::from_utf8_lossy(&chunk[..n]).to_string();
+            }
+
+            // stderr 有新行
+            line = stderr_lines.next_line() => {
+                match line {
+                    Ok(Some(line)) => {
+                        stderr_buf.push(line.clone());
                         let _ = app.emit("command-output", serde_json::json!({
                             "stream": "stderr",
-                            "data": text,
+                            "data": format!("{}\n", line),
                         }));
                     }
+                    Ok(None) => {
+                        // stderr 已关闭，继续监听其他流
+                    }
+                    Err(e) => {
+                        eprintln!("读取 stderr 失败: {}", e);
+                    }
                 }
-
-                if start.elapsed() >= timeout {
-                    timed_out = true;
-                    kill_process_tree(pid);
-                    let _ = child.wait();
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
             }
-            Err(e) => {
-                return Err(format!("等待命令退出失败: {}", e));
+
+            // 超时
+            _ = &mut timeout_future => {
+                timed_out = true;
+                kill_process_tree(pid);
+                let _ = child.wait().await;
+                break;
             }
         }
     }
 
-    // 进程退出后读尽管道中剩余数据
-    if let Some(mut pipe) = stdout_pipe.take() {
-        let mut rest = String::new();
-        let _ = pipe.read_to_string(&mut rest);
-        if !rest.is_empty() {
-            stdout_buf.extend_from_slice(rest.as_bytes());
+    // 读尽剩余输出（如果是正常退出）
+    if !timed_out {
+        while let Ok(Some(line)) = stdout_lines.next_line().await {
+            stdout_buf.push(line.clone());
             let _ = app.emit("command-output", serde_json::json!({
                 "stream": "stdout",
-                "data": rest,
+                "data": format!("{}\n", line),
             }));
         }
-    }
-    if let Some(mut pipe) = stderr_pipe.take() {
-        let mut rest = String::new();
-        let _ = pipe.read_to_string(&mut rest);
-        if !rest.is_empty() {
-            stderr_buf.extend_from_slice(rest.as_bytes());
+        while let Ok(Some(line)) = stderr_lines.next_line().await {
+            stderr_buf.push(line.clone());
             let _ = app.emit("command-output", serde_json::json!({
                 "stream": "stderr",
-                "data": rest,
+                "data": format!("{}\n", line),
             }));
         }
     }
 
-    let exit_code = match child.wait().ok().and_then(|s| s.code()) {
-        Some(code) => code,
-        None => {
-            // 已被 wait 消费过，尝试从已缓存状态推断：被杀进程在 Windows 上返回 1
-            if timed_out { 1 } else { -1 }
-        }
-    };
+    let exit_code = exit_status
+        .and_then(|s| s.code())
+        .unwrap_or(if timed_out { 1 } else { -1 });
 
     Ok(CommandResult {
         exit_code,
-        // 超时被杀的进程视为未成功
         success: exit_code == 0 && !timed_out,
-        stdout: String::from_utf8_lossy(&stdout_buf).to_string(),
-        stderr: String::from_utf8_lossy(&stderr_buf).to_string(),
+        stdout: stdout_buf.join("\n"),
+        stderr: stderr_buf.join("\n"),
         work_dir: dir,
         timed_out,
     })
@@ -299,8 +313,15 @@ pub fn execute_command_sync(
     let mut cmd_builder;
     #[cfg(target_os = "windows")]
     {
-        cmd_builder = Command::new("cmd");
-        cmd_builder.args(["/C", command]);
+        // Windows 下优先使用 Git Bash（兼容 POSIX 命令），否则回退到 cmd
+        let bash_path = which::which("bash").ok();
+        if let Some(bash) = bash_path {
+            cmd_builder = Command::new(bash);
+            cmd_builder.args(["-c", command]);
+        } else {
+            cmd_builder = Command::new("cmd");
+            cmd_builder.args(["/C", command]);
+        }
     }
 
     #[cfg(not(target_os = "windows"))]

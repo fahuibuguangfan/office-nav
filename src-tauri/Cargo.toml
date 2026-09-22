@@ -44,6 +44,7 @@ base64 = "0.22"
 sha2 = "0.10"
 zip = "0.6"
 walkdir = "2"
+which = "6"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

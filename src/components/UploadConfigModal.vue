@@ -7,6 +7,7 @@
     ok-text="发布"
     cancel-text="取消"
     :confirm-loading="publishing"
+    :ok-button-props="{ disabled: !canPublish }"
     :mask-closable="!publishing"
     :body-style="{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto' }"
     @cancel="handleClose"
@@ -150,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import { message } from 'ant-design-vue'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type { NavLink } from '../api/data'
@@ -173,6 +174,13 @@ const testing = ref(false)
 const executing = ref(false)
 const commandOutput = ref('')
 const outputRef = ref<HTMLElement>()
+
+// 计算发布按钮是否可用：只要勾选了任意一个选项就可以发布
+const canPublish = computed(() => {
+  return uploadConfig.value.enable_pre_command ||
+         uploadConfig.value.upload_to_server ||
+         uploadConfig.value.create_tag
+})
 
 // 实时输出事件监听（后端每读到一段命令输出就推送过来）
 let unlistenOutput: UnlistenFn | null = null
@@ -394,28 +402,42 @@ async function handlePublish() {
     return
   }
 
-  // 基础校验
-  if (!uploadConfig.value.upload_to_server) {
-    message.warning('请勾选「上传到服务器」')
+  // 基础校验：只要选了任意一个选项就可以发布
+  if (!uploadConfig.value.enable_pre_command &&
+      !uploadConfig.value.upload_to_server &&
+      !uploadConfig.value.create_tag) {
+    message.warning('请至少勾选一个选项')
     return
   }
-  if (!uploadConfig.value.ssh_host || !uploadConfig.value.ssh_user || !uploadConfig.value.ssh_password) {
-    message.warning('请完善 SSH 配置（主机、用户名、密码）')
-    return
-  }
-  if (!uploadConfig.value.local_dir || !uploadConfig.value.remote_dir) {
-    message.warning('请填写构建目录和远程目录')
-    return
+
+  // 如果勾选了上传到服务器，需要校验 SSH 配置
+  if (uploadConfig.value.upload_to_server) {
+    if (!uploadConfig.value.ssh_host || !uploadConfig.value.ssh_user || !uploadConfig.value.ssh_password) {
+      message.warning('请完善 SSH 配置（主机、用户名、密码）')
+      return
+    }
+    if (!uploadConfig.value.local_dir || !uploadConfig.value.remote_dir) {
+      message.warning('请填写构建目录和远程目录')
+      return
+    }
   }
 
   publishing.value = true
   commandOutput.value = '========== 开始发布 ==========\n'
 
-  // 监听发布日志
+  // 监听发布日志和命令输出
   let unlistenPublishLog: UnlistenFn | null = null
+  let unlistenCommandOutput: UnlistenFn | null = null
   try {
+    // 监听发布流程日志
     unlistenPublishLog = await listen<string>('publish-log', (event) => {
       commandOutput.value += `\n${event.payload}`
+      scrollToBottom()
+    })
+
+    // 监听前置命令的实时输出
+    unlistenCommandOutput = await listen<{ stream: string; data: string }>('command-output', (event) => {
+      commandOutput.value += event.payload.data
       scrollToBottom()
     })
 
@@ -432,6 +454,9 @@ async function handlePublish() {
     publishing.value = false
     if (unlistenPublishLog) {
       unlistenPublishLog()
+    }
+    if (unlistenCommandOutput) {
+      unlistenCommandOutput()
     }
     scrollToBottom()
   }

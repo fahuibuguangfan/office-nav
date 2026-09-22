@@ -22,7 +22,7 @@ export const useNavStore = defineStore('nav', () => {
   // 启动时使用模拟数据，实际环境通过 loadCache 或 refresh 加载数据
   const links = ref<NavLink[]>(mockLinks)
   const updatedAt = ref<number>(Date.now() / 1000)
-  const sourceUrl = ref<string>('http://192.0.2.142:1234/')
+  const sourceUrl = ref<string>('http://192.168.1.142:1234/')
   const loading = ref(false)
   const viewMode = ref<'grid' | 'list'>('grid')
 

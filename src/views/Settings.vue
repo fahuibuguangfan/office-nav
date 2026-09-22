@@ -16,6 +16,31 @@
 
         <a-divider />
 
+        <!-- 数据源配置 -->
+        <a-form-item label="数据源地址">
+          <a-input
+            v-model:value="sourceUrl"
+            placeholder="请输入数据源地址，如 http://192.168.1.142:1234/"
+            style="width: 100%"
+          >
+            <template #addonAfter>
+              <a-button
+                type="link"
+                size="small"
+                @click="handleSaveSourceUrl"
+                :loading="saveUrlLoading"
+              >
+                保存
+              </a-button>
+            </template>
+          </a-input>
+          <div class="text-gray-500 text-sm mt-2">
+            配置导航数据的来源地址，保存后点击"更新数据"生效
+          </div>
+        </a-form-item>
+
+        <a-divider />
+
         <!-- 缓存管理 -->
         <a-form-item label="缓存管理">
           <a-space>
@@ -53,10 +78,14 @@
 import { ref, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { isAutostartEnabled, enableAutostart, disableAutostart } from '@/api/autostart'
+import { useNavStore } from '@/stores/nav'
 
+const store = useNavStore()
 const autoStartEnabled = ref(false)
 const autoStartLoading = ref(false)
 const clearCacheLoading = ref(false)
+const saveUrlLoading = ref(false)
+const sourceUrl = ref('')
 
 // 加载自动启动状态
 onMounted(async () => {
@@ -65,6 +94,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('获取自动启动状态失败:', error)
   }
+  // 加载当前数据源地址
+  sourceUrl.value = store.sourceUrl
 })
 
 // 处理自动启动切换
@@ -85,6 +116,33 @@ const handleAutoStartChange = async (checked: boolean) => {
     autoStartEnabled.value = !checked
   } finally {
     autoStartLoading.value = false
+  }
+}
+
+// 保存数据源地址
+const handleSaveSourceUrl = async () => {
+  if (!sourceUrl.value.trim()) {
+    message.warning('请输入数据源地址')
+    return
+  }
+
+  // 验证地址格式
+  try {
+    new URL(sourceUrl.value)
+  } catch {
+    message.error('地址格式不正确，请输入完整的 URL（如 http://192.168.1.142:1234/）')
+    return
+  }
+
+  saveUrlLoading.value = true
+  try {
+    store.sourceUrl = sourceUrl.value
+    message.success('数据源地址已保存，请点击"更新数据"按钮刷新')
+  } catch (error) {
+    console.error('保存数据源地址失败:', error)
+    message.error('保存失败，请稍后重试')
+  } finally {
+    saveUrlLoading.value = false
   }
 }
 
