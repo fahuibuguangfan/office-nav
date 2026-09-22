@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>生成导航图标</title>
+</head>
+<body>
+    <canvas id="canvas" width="512" height="512"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 背景渐变
+        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient.addColorStop(0, '#1890ff');
+        gradient.addColorStop(1, '#096dd9');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+        
+        // 绘制导航图标（指南针）
+        ctx.save();
+        ctx.translate(256, 256);
+        
+        // 外圈
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 16;
+        ctx.beginPath();
+        ctx.arc(0, 0, 180, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 内圈
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 140, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // 指针 - 北（红色）
+        ctx.fillStyle = '#ff4d4f';
+        ctx.beginPath();
+        ctx.moveTo(0, -120);
+        ctx.lineTo(20, 0);
+        ctx.lineTo(-20, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 指针 - 南（白色）
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(0, 120);
+        ctx.lineTo(20, 0);
+        ctx.lineTo(-20, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 中心圆
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#1890ff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 方向标记
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('N', 0, -150);
+        
+        ctx.restore();
+        
+        // 导出图片
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.download = 'icon-512.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            console.log('图标已生成，请查看下载文件');
+        }, 100);
+    </script>
+</body>
+</html>

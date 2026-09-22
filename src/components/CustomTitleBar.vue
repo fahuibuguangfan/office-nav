@@ -5,6 +5,9 @@
       <span class="app-title">{{ appTitle }}</span>
     </div>
     <div class="title-bar-right">
+      <button class="title-bar-button settings" @click="emit('openSettings')" title="设置">
+        <SettingOutlined />
+      </button>
       <button class="title-bar-button minimize" @click="minimizeWindow" title="最小化">
         <MinusOutlined />
       </button>
@@ -21,8 +24,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { MinusOutlined, BorderOutlined, ShrinkOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import { MinusOutlined, BorderOutlined, ShrinkOutlined, CloseOutlined, SettingOutlined } from '@ant-design/icons-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+
+const emit = defineEmits<{
+  openSettings: []
+}>()
 
 const appTitle = ref('办公室服务导航')
 const isMaximized = ref(false)
@@ -55,7 +62,7 @@ async function closeWindow() {
 <style scoped>
 .custom-title-bar {
   height: 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--titlebar-gradient);
   display: flex;
   justify-content: space-between;
   align-items: center;

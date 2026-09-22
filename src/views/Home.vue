@@ -286,9 +286,9 @@ function formatTime(timestamp: number) {
 }
 
 .header {
-  background: white;
+  background: var(--bg-elevated);
   padding: 16px 24px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -319,13 +319,13 @@ function formatTime(timestamp: number) {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 16px 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .local-section {
   margin-bottom: 32px;
   padding-bottom: 8px;
-  border-bottom: 1px dashed #e8e8e8;
+  border-bottom: 1px dashed var(--border-color);
 }
 
 .local-title {
@@ -353,17 +353,17 @@ function formatTime(timestamp: number) {
 
   .list-count {
     font-size: 13px;
-    color: #999;
+    color: var(--text-tertiary);
   }
 }
 
 .footer {
-  background: white;
+  background: var(--bg-elevated);
   padding: 12px 24px;
-  border-top: 1px solid #e8e8e8;
+  border-top: 1px solid var(--border-color);
   display: flex;
   gap: 24px;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }
 </style>

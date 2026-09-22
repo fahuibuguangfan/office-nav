@@ -95,17 +95,17 @@ function showVersion() {
 
 <style scoped>
 .nav-card {
-  background: white;
+  background: var(--bg-container);
   border-radius: 8px;
   padding: 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-1);
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
 }
 
 .nav-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-2);
 }
 
 .card-header {
@@ -121,15 +121,16 @@ function showVersion() {
   margin: 0;
   flex: 1;
   word-break: break-all;
+  color: var(--text-primary);
 }
 
 .card-group {
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
   white-space: nowrap;
   margin-left: 8px;
   padding: 2px 8px;
-  background: #f5f5f5;
+  background: var(--bg-layout);
   border-radius: 4px;
 }
 
@@ -146,7 +147,7 @@ function showVersion() {
 .url-text {
   min-width: 0;
   font-size: 13px;
-  color: #0cbd58;
+  color: var(--theme-primary);
   word-break: break-all;
   line-height: 1.5;
 }
@@ -166,7 +167,7 @@ function showVersion() {
   display: flex;
   gap: 4px;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-color-secondary);
   margin-top: auto;
 }
 

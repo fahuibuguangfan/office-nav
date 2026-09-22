@@ -105,7 +105,7 @@ function showUpload(record: NavLink) {
 
 <style scoped>
 .nav-list {
-  background: white;
+  background: var(--bg-container);
   border-radius: 8px;
   padding: 16px;
 }
@@ -119,7 +119,7 @@ function showUpload(record: NavLink) {
 }
 
 .url-text {
-  color: #0cbd58;
+  color: var(--theme-primary);
   word-break: break-all;
 }
 

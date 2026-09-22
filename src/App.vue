@@ -1,13 +1,26 @@
 <template>
-  <div class="app">
-    <CustomTitleBar />
-    <Home />
-  </div>
+  <a-config-provider :theme="themeStore.antdTheme">
+    <div class="app">
+      <CustomTitleBar @open-settings="showSettings = true" />
+      <Home />
+      <SettingsModal v-model:open="showSettings" />
+    </div>
+  </a-config-provider>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import CustomTitleBar from './components/CustomTitleBar.vue'
 import Home from './views/Home.vue'
+import SettingsModal from './components/SettingsModal.vue'
+import { useThemeStore } from './stores/theme'
+
+const themeStore = useThemeStore()
+const showSettings = ref(false)
+
+onMounted(async () => {
+  await themeStore.loadTheme()
+})
 </script>
 
 <style>
@@ -20,7 +33,8 @@ import Home from './views/Home.vue'
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: #f9f9f9;
+  background: var(--bg-layout);
+  color: var(--text-primary);
 }
 
 .app {
