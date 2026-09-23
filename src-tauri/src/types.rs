@@ -92,3 +92,19 @@ pub struct GitInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub git_status: Option<String>,
 }
+
+/// 全局配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalConfig {
+    /// 应用更新地址
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_url: Option<String>,
+}
+
+impl Default for GlobalConfig {
+    fn default() -> Self {
+        Self {
+            update_url: Some("https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json".to_string()),
+        }
+    }
+}

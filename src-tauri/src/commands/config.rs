@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::types::UploadConfig;
+use crate::types::{UploadConfig, GlobalConfig};
 use crate::utils::crypto;
 use tauri_plugin_store::StoreExt;
 
@@ -78,6 +78,33 @@ pub async fn save_note(
     let key = format!("notes.{}", link_key);
 
     store.set(&key, serde_json::to_value(&note).unwrap());
+    store.save()?;
+
+    Ok(())
+}
+
+/// 获取全局配置
+#[tauri::command]
+pub async fn get_global_config(app: tauri::AppHandle) -> Result<GlobalConfig> {
+    let store = app.store("store.json")?;
+    let key = "global_config";
+
+    match store.get(key) {
+        Some(v) => Ok(serde_json::from_value(v.clone()).unwrap_or_default()),
+        None => Ok(GlobalConfig::default()),
+    }
+}
+
+/// 保存全局配置
+#[tauri::command]
+pub async fn save_global_config(
+    config: GlobalConfig,
+    app: tauri::AppHandle,
+) -> Result<()> {
+    let store = app.store("store.json")?;
+    let key = "global_config";
+
+    store.set(key, serde_json::to_value(&config).unwrap());
     store.save()?;
 
     Ok(())

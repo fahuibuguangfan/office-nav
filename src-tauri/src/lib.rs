@@ -64,6 +64,8 @@ pub fn run() {
             config::save_upload_config,
             config::get_note,
             config::save_note,
+            config::get_global_config,
+            config::save_global_config,
             autostart::is_autostart_enabled,
             autostart::enable_autostart,
             autostart::disable_autostart,

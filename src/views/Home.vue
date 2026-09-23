@@ -110,6 +110,7 @@ import { save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialo
 import { useNavStore } from '../stores/nav'
 import type { NavLink } from '../api/data'
 import { exportConfig, importConfig } from '../api/local'
+import { getGlobalConfig } from '../api/config'
 import SearchDropdown from '../components/SearchDropdown.vue'
 import NavCard from '../components/NavCard.vue'
 import NavList from '../components/NavList.vue'
@@ -122,11 +123,20 @@ const store = useNavStore()
 const filterQuery = ref('')
 const showUpdateModal = ref(false)
 const showLocalModal = ref(false)
-// 版本更新地址：指向 GitHub 仓库中的 app-version.json（推 tag 发版后由 CI 自动构建 Releases）
-
+// 版本更新地址：从全局配置读取，默认使用 GitHub
 const updateUrl = ref('https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json')
 
 onMounted(async () => {
+  // 加载全局配置
+  try {
+    const config = await getGlobalConfig()
+    if (config.updateUrl) {
+      updateUrl.value = config.updateUrl
+    }
+  } catch (error) {
+    console.error('加载全局配置失败:', error)
+  }
+
   await store.loadCache()
   // 如果没有缓存数据，自动刷新一次
   if (store.links.length === 0) {

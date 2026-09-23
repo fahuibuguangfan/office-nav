@@ -96,6 +96,31 @@
 
         <a-divider />
 
+        <!-- 更新地址配置 -->
+        <a-form-item label="版本更新地址">
+          <a-input
+            v-model:value="updateUrl"
+            placeholder="默认：https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json"
+            style="width: 100%"
+          >
+            <template #addonAfter>
+              <a-button
+                type="link"
+                size="small"
+                @click="handleSaveUpdateUrl"
+                :loading="saveUpdateUrlLoading"
+              >
+                保存
+              </a-button>
+            </template>
+          </a-input>
+          <div class="text-gray-500 text-sm mt-2">
+            国内访问 GitHub 较慢，可配置镜像加速地址（如 ghproxy.com）或自建更新服务
+          </div>
+        </a-form-item>
+
+        <a-divider />
+
         <!-- 缓存管理 -->
         <a-form-item label="缓存管理">
           <a-space>
@@ -138,6 +163,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { CheckOutlined, BgColorsOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { isAutostartEnabled, enableAutostart, disableAutostart } from '@/api/autostart'
+import { getGlobalConfig, saveGlobalConfig } from '@/api/config'
 import { useNavStore } from '@/stores/nav'
 import { useThemeStore, PRESET_COLORS } from '@/stores/theme'
 import { createVNode } from 'vue'
@@ -166,7 +192,9 @@ const autoStartEnabled = ref(false)
 const autoStartLoading = ref(false)
 const clearCacheLoading = ref(false)
 const saveUrlLoading = ref(false)
+const saveUpdateUrlLoading = ref(false)
 const sourceUrl = ref('')
+const updateUrl = ref('')
 const customColor = ref(themeStore.primaryColor)
 
 // 根据当前模式过滤主题色
@@ -183,6 +211,16 @@ onMounted(async () => {
   }
   // 加载当前数据源地址
   sourceUrl.value = store.sourceUrl
+
+  // 加载全局配置
+  try {
+    const config = await getGlobalConfig()
+    if (config.updateUrl) {
+      updateUrl.value = config.updateUrl
+    }
+  } catch (error) {
+    console.error('加载全局配置失败:', error)
+  }
 })
 
 const handleClose = () => {
@@ -253,6 +291,33 @@ const handleSaveSourceUrl = async () => {
     message.error('保存失败，请稍后重试')
   } finally {
     saveUrlLoading.value = false
+  }
+}
+
+// 保存更新地址
+const handleSaveUpdateUrl = async () => {
+  if (!updateUrl.value.trim()) {
+    message.warning('请输入版本更新地址')
+    return
+  }
+
+  // 验证地址格式
+  try {
+    new URL(updateUrl.value)
+  } catch {
+    message.error('地址格式不正确，请输入完整的 URL')
+    return
+  }
+
+  saveUpdateUrlLoading.value = true
+  try {
+    await saveGlobalConfig({ updateUrl: updateUrl.value })
+    message.success('版本更新地址已保存')
+  } catch (error) {
+    console.error('保存更新地址失败:', error)
+    message.error('保存失败，请稍后重试')
+  } finally {
+    saveUpdateUrlLoading.value = false
   }
 }
 

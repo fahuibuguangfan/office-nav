@@ -26,6 +26,10 @@ export interface CommandResult {
   timed_out: boolean
 }
 
+export interface GlobalConfig {
+  updateUrl?: string
+}
+
 /**
  * 执行命令（可选指定工作目录与超时秒数，超时后终止进程树）
  */
@@ -69,4 +73,18 @@ export async function testSshConnection(config: UploadConfig): Promise<string> {
  */
 export async function publishToServer(config: UploadConfig, buildOutput?: string): Promise<string> {
   return invoke<string>('publish_to_server', { config, buildOutput: buildOutput || null })
+}
+
+/**
+ * 获取全局配置
+ */
+export async function getGlobalConfig(): Promise<GlobalConfig> {
+  return invoke<GlobalConfig>('get_global_config')
+}
+
+/**
+ * 保存全局配置
+ */
+export async function saveGlobalConfig(config: GlobalConfig): Promise<void> {
+  return invoke('save_global_config', { config })
 }
