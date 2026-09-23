@@ -391,6 +391,7 @@ pub async fn publish_to_server(
                                         .builder()
                                         .title("发布成功")
                                         .body(&notification_body)
+                                        .icon("icon")
                                         .show();
 
                                     let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
@@ -405,6 +406,7 @@ pub async fn publish_to_server(
                                         .builder()
                                         .title("发布成功")
                                         .body(&notification_body)
+                                        .icon("icon")
                                         .show();
 
                                     let _ = app_clone.emit("publish-log", "\n========== 部署完成（标签创建失败） ==========");
@@ -420,6 +422,7 @@ pub async fn publish_to_server(
                                 .builder()
                                 .title("发布成功")
                                 .body(&notification_body)
+                                .icon("icon")
                                 .show();
 
                             let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
@@ -434,6 +437,7 @@ pub async fn publish_to_server(
                             .builder()
                             .title("发布成功")
                             .body(&notification_body)
+                            .icon("icon")
                             .show();
 
                         let _ = app_clone.emit("publish-log", "\n========== 部署完成 ==========");
@@ -533,6 +537,7 @@ pub async fn publish_to_server(
                             .builder()
                             .title("标签创建成功")
                             .body(&tag_info)
+                            .icon("icon")
                             .show();
 
                         let _ = app.emit("publish-log", "\n========== 标签创建完成 ==========");
