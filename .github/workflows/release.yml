@@ -17,8 +17,6 @@ jobs:
         include:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
-          - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
           - platform: ubuntu-22.04
             args: ''
           - platform: windows-latest
@@ -42,7 +40,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -54,23 +52,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install macOS Intel OpenSSL
-        if: matrix.platform == 'macos-latest' && matrix.args == '--target x86_64-apple-darwin'
-        run: |
-          # ARM runner 上装 x86_64 版 OpenSSL（Rosetta 2），供交叉编译 Intel 目标链接
-          # HOMEBREW_* 环境变量：屏蔽 postinstall 失败和 PATH 提示，避免非致命错误中断脚本
-          export HOMEBREW_NO_ENV_HINTS=1
-          export HOMEBREW_NO_INSTALL_CLEANUP=1
-          softwareupdate --install-rosetta --agree-to-license 2>/dev/null || true
-          if [ ! -x /usr/local/bin/brew ]; then
-            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
-          fi
-          arch -x86_64 /usr/local/bin/brew install openssl@3 || arch -x86_64 /usr/local/bin/brew link openssl@3 || true
-          ls -d /usr/local/opt/openssl@3
-          echo "OPENSSL_DIR=/usr/local/opt/openssl@3" >> $GITHUB_ENV
-          echo "OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include" >> $GITHUB_ENV
-          echo "OPENSSL_LIB_DIR=/usr/local/opt/openssl@3/lib" >> $GITHUB_ENV
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
