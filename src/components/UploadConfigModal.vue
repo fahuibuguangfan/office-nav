@@ -4,15 +4,29 @@
     title="上传配置"
     width="700px"
     centered
-    ok-text="发布"
-    cancel-text="取消"
-    :confirm-loading="publishing"
-    :ok-button-props="{ disabled: !canPublish }"
     :mask-closable="!publishing"
     :body-style="{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', paddingRight: '24px' }"
     @cancel="handleClose"
-    @ok="handlePublish"
   >
+    <template #footer>
+      <a-button @click="handleClose" :disabled="publishing">取消</a-button>
+      <a-button
+        v-if="publishing"
+        danger
+        :loading="cancelling"
+        @click="handleStopPublish"
+      >
+        停止发布
+      </a-button>
+      <a-button
+        type="primary"
+        :loading="publishing"
+        :disabled="!canPublish || publishing"
+        @click="handlePublish"
+      >
+        {{ publishing ? '发布中' : '发布' }}
+      </a-button>
+    </template>
     <a-form noStyle :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
       <a-form-item label="主机名 / 端口">
         <a-input-group compact>
@@ -129,12 +143,15 @@
       </a-form-item>
 
       <!-- 命令输出区域 -->
-      <a-form-item label="命令输出" v-if="commandOutput || executing">
+      <a-form-item label="命令输出" v-if="commandOutput || executing || publishing">
         <div class="command-output-wrapper">
           <div class="command-output" ref="outputRef">
             <pre v-if="commandOutput">{{ commandOutput }}</pre>
             <div v-if="executing" class="executing-indicator">
               <a-spin size="small" /> 命令执行中...
+            </div>
+            <div v-if="cancelling" class="executing-indicator cancelling-indicator">
+              <a-spin size="small" /> 正在停止发布，等待当前步骤完成...
             </div>
           </div>
           <div class="output-actions" v-if="executing">
@@ -167,7 +184,7 @@ import { ref, watch, computed, onBeforeUnmount } from 'vue'
 import { message } from 'ant-design-vue'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type { NavLink } from '../api/data'
-import { getUploadConfig, saveUploadConfig, executeCommand, testSshConnection, publishToServer, type UploadConfig } from '../api/config'
+import { getUploadConfig, saveUploadConfig, executeCommand, testSshConnection, publishToServer, cancelPublish, type UploadConfig } from '../api/config'
 
 const props = defineProps<{
   open: boolean
@@ -180,6 +197,7 @@ const emit = defineEmits<{
 
 const visible = ref(false)
 const publishing = ref(false)
+const cancelling = ref(false)
 
 const parsing = ref(false)
 const testing = ref(false)
@@ -473,6 +491,7 @@ async function handlePublish() {
   }
 
   publishing.value = true
+  cancelling.value = false
   commandOutput.value = '========== 开始发布 ==========\n'
 
   // 监听发布日志和命令输出
@@ -494,14 +513,25 @@ async function handlePublish() {
     // 调用后端发布接口
     const result = await publishToServer(uploadConfig.value)
     commandOutput.value += `\n\n[完成] ${result}`
-    message.success('发布成功')
+    // 用户取消返回的提示文案由后端控制，这里区分提示
+    if (cancelling.value) {
+      message.warning('发布已停止')
+    } else {
+      message.success('发布成功')
+    }
   } catch (error) {
     const errorMsg = String(error)
     commandOutput.value += `\n\n[失败] ${errorMsg}`
     console.error('发布失败:', error)
-    message.error(`发布失败: ${errorMsg}`)
+    // 区分用户取消与真实异常
+    if (errorMsg.includes('用户已取消发布')) {
+      message.warning('发布已停止')
+    } else {
+      message.error(`发布失败: ${errorMsg}`)
+    }
   } finally {
     publishing.value = false
+    cancelling.value = false
     if (unlistenPublishLog) {
       unlistenPublishLog()
     }
@@ -509,6 +539,24 @@ async function handlePublish() {
       unlistenCommandOutput()
     }
     scrollToBottom()
+  }
+}
+
+// 停止发布：通知后端设置取消信号，后端在下个检查点中止流程
+async function handleStopPublish() {
+  cancelling.value = true
+  try {
+    const hasTask = await cancelPublish()
+    if (!hasTask) {
+      message.info('当前没有正在进行的发布任务')
+      cancelling.value = false
+    } else {
+      message.info('已请求停止发布，将在当前步骤完成后中止...')
+    }
+  } catch (error) {
+    console.error('停止发布失败:', error)
+    message.error('停止发布失败')
+    cancelling.value = false
   }
 }
 </script>
@@ -568,6 +616,10 @@ async function handlePublish() {
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+
+.cancelling-indicator {
+  color: #ff7875;
 }
 
 .output-actions {

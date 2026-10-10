@@ -1,16 +1,33 @@
 use crate::error::Result;
 use crate::types::UploadConfig;
-use crate::utils::{crypto, lock::PublishLockManager};
+use crate::utils::{crypto, lock::PublishLockManager, cancel::{PublishCancelManager, new_cancel_flag, is_cancelled}};
 use crate::commands::{git, shell};
 use anyhow::Context;
 use ssh2::Session;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 use tauri_plugin_notification::NotificationExt;
+
+/// 用户请求取消时返回的错误信息
+const CANCELLED_MSG: &str = "用户已取消发布";
+
+/// 发布被取消错误（区分用户取消与真实异常，前端据此显示不同提示）
+fn cancelled_err() -> crate::error::AppError {
+    anyhow::anyhow!(CANCELLED_MSG).into()
+}
+
+/// 检查是否已被取消，是则返回取消错误
+macro_rules! check_cancel {
+    ($flag:expr) => {
+        if is_cancelled($flag) {
+            return Err(cancelled_err());
+        }
+    };
+}
 
 /// 锁守卫：自动释放发布锁
 struct LockGuard {
@@ -73,10 +90,25 @@ pub async fn test_ssh_connection(config: UploadConfig) -> Result<String> {
 pub async fn publish_to_server(
     app: tauri::AppHandle,
     lock_manager: tauri::State<'_, PublishLockManager>,
+    cancel_manager: tauri::State<'_, PublishCancelManager>,
     config: UploadConfig,
     _build_output: Option<String>,
 ) -> Result<String> {
     use tauri::Emitter;
+
+    // 创建本次发布任务的取消信号并注册到管理器
+    let cancel_flag = new_cancel_flag();
+    cancel_manager.register(cancel_flag.clone());
+
+    // 确保在函数结束时注销取消信号（无论成功/失败/取消）
+    // 用 RAII 守卫确保异常路径也会执行注销
+    struct CancelUnregisterGuard<'a>(&'a PublishCancelManager);
+    impl Drop for CancelUnregisterGuard<'_> {
+        fn drop(&mut self) {
+            self.0.unregister();
+        }
+    }
+    let _cancel_guard = CancelUnregisterGuard(&cancel_manager);
 
     // 解析工作目录
     let base_dir = match &config.work_dir {
@@ -99,6 +131,9 @@ pub async fn publish_to_server(
 
     let _ = app.emit("publish-log", format!("工作目录: {}", base_dir.display()));
 
+    // 在每个关键步骤前检查取消信号
+    check_cancel!(&cancel_flag);
+
     // 1. 执行前置命令（构建）
     if config.enable_pre_command {
         if let Some(cmd) = &config.pre_command {
@@ -106,6 +141,9 @@ pub async fn publish_to_server(
                 let _ = app.emit("publish-log", format!(">>> 执行前置命令: {}", cmd));
                 let _ = app.emit("publish-log", format!(">>> 工作目录: {}", config.work_dir.as_deref().unwrap_or("(当前目录)")));
                 let _ = app.emit("publish-log", format!(">>> 超时设置: {} 秒", config.timeout_secs.unwrap_or(60)));
+
+                // 前置命令执行前再检查一次取消信号
+                check_cancel!(&cancel_flag);
 
                 // 使用异步命令执行（带实时输出）
                 let cmd_clone = cmd.trim().to_string();
@@ -152,6 +190,9 @@ pub async fn publish_to_server(
         }
     }
 
+    // 前置命令完成后、进入上传流程前检查取消信号
+    check_cancel!(&cancel_flag);
+
     // 2. 如果勾选了上传到服务器，执行上传流程
     if config.upload_to_server {
         let _ = app.emit("publish-log", "\n========== 开始上传到服务器 ==========");
@@ -186,6 +227,9 @@ pub async fn publish_to_server(
         // 打包构建产物为 .zip
         let _ = app.emit("publish-log", "\n========== 开始打包构建产物 ==========");
 
+        // 打包前检查取消信号
+        check_cancel!(&cancel_flag);
+
         let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
         let zip_name = format!("build_{}.zip", timestamp);
         let zip_path = std::env::temp_dir().join(&zip_name);
@@ -209,8 +253,10 @@ pub async fn publish_to_server(
         let zip_path_clone = zip_path.clone();
         let app_clone = app.clone();
         let base_dir_clone = base_dir.clone();
+        let cancel_flag_clone = cancel_flag.clone();
 
         let result = tokio::task::spawn_blocking(move || -> Result<String> {
+            // TCP 连接阶段
             let tcp = match TcpStream::connect(format!("{}:{}", config_clone.ssh_host, config_clone.ssh_port)) {
                 Ok(stream) => {
                     let _ = app_clone.emit("publish-log", ">>> TCP 连接成功");
@@ -252,13 +298,20 @@ pub async fn publish_to_server(
                 return Err(anyhow::anyhow!("SSH 认证未通过").into());
             }
 
+            // 认证完成，开始上传前检查取消信号
+            if is_cancelled(&cancel_flag_clone) {
+                let _ = app_clone.emit("publish-log", "\n========== 用户已取消发布 ==========");
+                return Err(cancelled_err());
+            }
+
             let _ = app_clone.emit("publish-log", "\n========== 上传压缩包 ==========");
 
             // 上传压缩包
             let remote_zip = format!("/tmp/{}", zip_name);
             let _ = app_clone.emit("publish-log", format!(">>> 目标路径: {}", remote_zip));
 
-            let mut remote_file = match sess.scp_send(Path::new(&remote_zip), 0o644, zip_path_clone.metadata()?.len(), None) {
+            let zip_total = zip_path_clone.metadata()?.len();
+            let mut remote_file = match sess.scp_send(Path::new(&remote_zip), 0o644, zip_total, None) {
                 Ok(f) => {
                     let _ = app_clone.emit("publish-log", ">>> SCP 通道创建成功");
                     f
@@ -277,16 +330,45 @@ pub async fn publish_to_server(
                 }
             };
 
+            // 分块上传，每块上传后检查取消信号
             let _ = app_clone.emit("publish-log", ">>> 开始传输...");
-            match std::io::copy(&mut local_file, &mut remote_file) {
-                Ok(bytes) => {
-                    let _ = app_clone.emit("publish-log", format!(">>> 传输完成: {:.2} MB", bytes as f64 / 1024.0 / 1024.0));
+            let mut buf = [0u8; 64 * 1024];
+            let mut sent: u64 = 0;
+            let mut cancelled_during_upload = false;
+            loop {
+                if is_cancelled(&cancel_flag_clone) {
+                    cancelled_during_upload = true;
+                    break;
                 }
-                Err(e) => {
+                let n = match local_file.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => n,
+                    Err(e) => {
+                        let _ = app_clone.emit("publish-log", format!(">>> 传输失败: {}", e));
+                        return Err(anyhow::anyhow!("上传失败: {}", e).into());
+                    }
+                };
+                if let Err(e) = remote_file.write_all(&buf[..n]) {
                     let _ = app_clone.emit("publish-log", format!(">>> 传输失败: {}", e));
                     return Err(anyhow::anyhow!("上传失败: {}", e).into());
                 }
+                sent += n as u64;
             }
+
+            if cancelled_during_upload {
+                // 上传途中取消：关闭通道，清理远端半成品文件
+                let _ = app_clone.emit("publish-log", "\n========== 上传中途取消，清理远端半成品 ==========");
+                remote_file.send_eof().ok();
+                remote_file.wait_eof().ok();
+                remote_file.close().ok();
+                remote_file.wait_close().ok();
+                let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
+                let _ = app_clone.emit("publish-log", format!(">>> 已清理远端临时文件: {}", remote_zip));
+                let _ = app_clone.emit("publish-log", "\n========== 用户已取消发布 ==========");
+                return Err(cancelled_err());
+            }
+
+            let _ = app_clone.emit("publish-log", format!(">>> 传输完成: {:.2} MB", sent as f64 / 1024.0 / 1024.0));
 
             remote_file.send_eof().ok();
             remote_file.wait_eof().ok();
@@ -294,6 +376,12 @@ pub async fn publish_to_server(
             remote_file.wait_close().ok();
 
             let _ = app_clone.emit("publish-log", ">>> 上传完成");
+
+            // 远程备份旧目录前检查取消信号
+            if is_cancelled(&cancel_flag_clone) {
+                let _ = app_clone.emit("publish-log", "\n========== 用户已取消发布 ==========");
+                return Err(cancelled_err());
+            }
 
             // 远程备份旧目录
             let _ = app_clone.emit("publish-log", "\n========== 备份远程目录 ==========");
@@ -325,6 +413,22 @@ pub async fn publish_to_server(
                 let _ = app_clone.emit("publish-log", ">>> 旧目录已备份");
             } else {
                 let _ = app_clone.emit("publish-log", ">>> 远程目录不存在，跳过备份");
+            }
+
+            // 备份完成、解压前检查取消信号
+            if is_cancelled(&cancel_flag_clone) {
+                let _ = app_clone.emit("publish-log", "\n========== 用户已取消发布，还原备份 ==========");
+                if had_backup {
+                    let restore_cmd = format!(
+                        "rm -rf '{}' && mv '{}' '{}' && echo 'restore_ok'",
+                        remote_dir, backup_dir, remote_dir
+                    );
+                    let _ = exec_ssh_command(&sess, &restore_cmd);
+                    let _ = app_clone.emit("publish-log", ">>> 已还原备份目录");
+                }
+                let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
+                let _ = app_clone.emit("publish-log", "\n========== 用户已取消发布 ==========");
+                return Err(cancelled_err());
             }
 
             // 解压到目标目录
@@ -374,6 +478,19 @@ pub async fn publish_to_server(
                     let _ = app_clone.emit("publish-log", format!(">>> 删除临时压缩包: {}", remote_zip));
                     let _ = exec_ssh_command(&sess, &format!("rm -f '{}'", remote_zip));
                     let _ = app_clone.emit("publish-log", ">>> 临时文件已清理");
+
+                    // 创建 Git 标签前检查取消信号
+                    if is_cancelled(&cancel_flag_clone) {
+                        let _ = app_clone.emit("publish-log", "\n========== 部署已完成，但用户在打标签前取消 ==========");
+                        // 部署已生效，标签未打，返回成功但附带提示
+                        let _ = app_clone.notification()
+                            .builder()
+                            .title("发布完成")
+                            .body(format!("已成功发布到 {}:{}\n（用户取消，未创建 Git 标签）", config_clone.ssh_host, remote_dir))
+                            .icon("icon")
+                            .show();
+                        return Ok(format!("发布成功（已取消标签创建）：{}", remote_dir));
+                    }
 
                     // 创建 Git 标签（如果勾选）
                     if config_clone.create_tag {
@@ -522,6 +639,9 @@ pub async fn publish_to_server(
 
         result
     } else {
+        // 未勾选上传到服务器：进入打 Git 标签分支前检查取消信号
+        check_cancel!(&cancel_flag);
+
         // 如果未勾选上传到服务器，检查是否需要单独创建 Git 标签
         if config.create_tag {
             let _ = app.emit("publish-log", "\n========== 创建 Git 标签 ==========");
@@ -618,4 +738,16 @@ fn exec_ssh_command(sess: &Session, cmd: &str) -> Result<String> {
 
     channel.wait_close().ok();
     Ok(output)
+}
+
+/// 取消当前正在进行的发布任务
+///
+/// 设置取消信号，发布流程会在下一个检查点中止。
+/// 返回是否存在进行中的发布任务。
+#[tauri::command]
+pub async fn cancel_publish(
+    cancel_manager: tauri::State<'_, PublishCancelManager>,
+) -> Result<bool> {
+    let has_task = cancel_manager.request_cancel();
+    Ok(has_task)
 }

@@ -9,11 +9,20 @@ pub mod utils;
 
 use commands::{data, config, autostart, shell, version, upload, update, local_links, portable};
 use tauri::{Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
+use utils::cancel::PublishCancelManager;
 use utils::lock::PublishLockManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // 已有实例运行时，唤起主窗口到前台
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--flag1", "--flag2"]),
@@ -28,6 +37,8 @@ pub fn run() {
         .setup(|app| {
             // 初始化发布锁管理器
             app.manage(PublishLockManager::new());
+            // 初始化发布取消管理器
+            app.manage(PublishCancelManager::new());
 
             // 创建系统托盘菜单
             let show_i = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
@@ -75,6 +86,7 @@ pub fn run() {
             version::fetch_version_info,
             upload::test_ssh_connection,
             upload::publish_to_server,
+            upload::cancel_publish,
             update::fetch_app_version_info,
             update::get_current_version,
             update::get_current_platform,

@@ -76,6 +76,14 @@ export async function publishToServer(config: UploadConfig, buildOutput?: string
 }
 
 /**
+ * 取消当前正在进行的发布任务
+ * 返回是否存在进行中的发布任务
+ */
+export async function cancelPublish(): Promise<boolean> {
+  return invoke<boolean>('cancel_publish')
+}
+
+/**
  * 获取全局配置
  */
 export async function getGlobalConfig(): Promise<GlobalConfig> {
