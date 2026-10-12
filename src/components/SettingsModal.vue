@@ -146,7 +146,7 @@
               办公室服务导航
             </a-descriptions-item>
             <a-descriptions-item label="版本号">
-              v1.2.4
+              v1.2.5
             </a-descriptions-item>
             <a-descriptions-item label="作者">
               发挥不广泛
