@@ -1,5 +1,6 @@
 use std::process::Command;
 use anyhow::Result;
+use crate::utils::process::HideWindowExt;
 
 /// 解析主机名（从 URL 提取主机名，尝试解析为 IP）
 #[tauri::command]
@@ -38,9 +39,10 @@ pub struct CommandResult {
 /// 在 Windows 上终止整个进程树（taskkill /T /F）
 #[cfg(target_os = "windows")]
 fn kill_process_tree(pid: u32) {
-    let _ = Command::new("taskkill")
-        .args(["/PID", &pid.to_string(), "/T", "/F"])
-        .output();
+    let mut cmd = Command::new("taskkill");
+    cmd.args(["/PID", &pid.to_string(), "/T", "/F"]);
+    cmd.hide_console_window();
+    let _ = cmd.output();
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -108,6 +110,10 @@ pub async fn execute_command(
     cmd_builder.current_dir(&dir);
     cmd_builder.stdout(std::process::Stdio::piped());
     cmd_builder.stderr(std::process::Stdio::piped());
+
+    // release 构建下宿主为 GUI 子系统（无控制台），子进程会各自弹出黑色控制台窗口。
+    // 设置 CREATE_NO_WINDOW 抑制弹窗；debug 构建下子进程继承父控制台，不受影响。
+    cmd_builder.hide_console_window();
 
     let mut child = cmd_builder
         .spawn()
@@ -255,8 +261,10 @@ fn is_ip_address(s: &str) -> bool {
 
 /// 使用 nslookup 解析域名
 async fn resolve_with_nslookup(hostname: &str) -> Result<String, String> {
-    let output = Command::new("nslookup")
-        .arg(hostname)
+    let mut cmd = Command::new("nslookup");
+    cmd.arg(hostname);
+    cmd.hide_console_window();
+    let output = cmd
         .output()
         .map_err(|e| format!("nslookup 执行失败: {}", e))?;
 
@@ -425,9 +433,11 @@ pub async fn open_folder(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer")
-            .arg(&path)
-            .spawn()
+        let mut cmd = Command::new("explorer");
+        cmd.arg(&path);
+        // explorer 自身是 GUI 程序，但通过 cmd 派生时仍可能弹窗，统一隐藏
+        cmd.hide_console_window();
+        cmd.spawn()
             .map_err(|e| format!("打开文件夹失败: {}", e))?;
     }
 

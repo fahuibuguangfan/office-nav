@@ -1,14 +1,16 @@
 {
-  "version": "1.1.0",
-  "release_date": "2026-09-10",
+  "version": "1.2.4",
+  "release_date": "2026-10-12",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.1.0/_1.1.0_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.1.0/_1.1.0_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.1.0/_1.1.0_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.4/_1.2.4_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.4/_1.2.4_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.4/_1.2.4_amd64.AppImage"
   },
   "update_log": [
-    "新增配置导入导出：一键备份备注、上传配置等全部本地配置，换机不丢数据（导出文件不含 SSH 密码，导入后需重新填写）",
-    "新增本地服务管理：本地添加的服务独立保存，办公室数据刷新不会覆盖，支持编辑、删除和从 JSON 文件导入"
+    "新增单实例限制：重复打开应用不再新开窗口，而是唤起已有窗口到前台",
+    "新增停止发布功能：发布过程中可随时取消，自动清理远端半成品文件并还原备份",
+    "修复打包后执行命令弹出黑色控制台窗口的问题（release 构建下隐藏子进程窗口）",
+    "新增全局主题设置：支持亮暗模式切换与主题色自定义"
   ],
   "force_update": false
 }
