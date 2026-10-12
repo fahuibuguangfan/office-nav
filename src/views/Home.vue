@@ -123,8 +123,8 @@ const store = useNavStore()
 const filterQuery = ref('')
 const showUpdateModal = ref(false)
 const showLocalModal = ref(false)
-// 版本更新地址：从全局配置读取，默认使用 GitHub
-const updateUrl = ref('https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json')
+// 版本更新地址：从全局配置读取，默认使用 jsdelivr CDN（国内访问 GitHub raw 易超时）
+const updateUrl = ref('https://fastly.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json')
 
 onMounted(async () => {
   // 加载全局配置

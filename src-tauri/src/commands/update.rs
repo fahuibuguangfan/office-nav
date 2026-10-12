@@ -14,9 +14,19 @@ pub struct VersionInfo {
 /// 从远程 URL 获取最新版本信息
 #[tauri::command]
 pub async fn fetch_app_version_info(url: String) -> Result<VersionInfo> {
-    let response = reqwest::get(&url)
+    // 使用带超时的 client，避免网络不通时前端一直"加载中"
+    // 国内访问 raw.githubusercontent.com 经常超时，超时后给明确错误
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| anyhow::anyhow!("创建 HTTP 客户端失败: {}", e))?;
+
+    let response = client
+        .get(&url)
+        .send()
         .await
-        .map_err(|e| anyhow::anyhow!("获取版本信息失败: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("获取版本信息失败（可能是网络不通或被墙，尝试在设置里更换更新地址）: {}", e))?;
 
     let version_info: VersionInfo = response
         .json()
