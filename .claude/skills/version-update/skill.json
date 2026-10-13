@@ -1,0 +1,3 @@
+{
+  "description": "自动更新项目版本号并同步所有配置文件。支持命令：/version-update（交互式选择升级方式：1=小版本 1.2.6→1.2.7、2=中版本 1.2.6→1.3.0、3=大版本 1.2.6→2.0.0、4=自定义）、/version-update 1.3.0（指定版本号）。自动更新 tauri.conf.json、package.json、app-version.json 三个文件，生成更新日志，提交并推送代码，触发 CI/CD 自动打包（10-15分钟），CDN 同步（1-5分钟）。"
+}
