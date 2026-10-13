@@ -1,7 +1,7 @@
 <template>
   <div class="custom-title-bar" data-tauri-drag-region>
     <div class="title-bar-left">
-      <img src="/icon.svg" class="app-icon" alt="icon" />
+      <img src="/icons/128x128.png" class="app-icon" alt="icon" />
       <span class="app-title">{{ appTitle }}</span>
     </div>
     <div class="title-bar-right">
