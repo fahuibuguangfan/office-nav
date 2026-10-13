@@ -14,10 +14,6 @@
           <a-radio-button value="list">列表</a-radio-button>
         </a-radio-group>
 
-        <a-button @click="showUpdateModal = true">
-          检查更新
-        </a-button>
-
         <a-button @click="showLocalModal = true">
           本地服务
         </a-button>
@@ -34,6 +30,9 @@
               </a-menu-item>
               <a-menu-item key="import">
                 <ImportOutlined /> 导入配置
+              </a-menu-item>
+              <a-menu-item key="checkUpdate">
+                <CheckCircleOutlined /> 检查更新
               </a-menu-item>
             </a-menu>
           </template>
@@ -104,7 +103,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { DownOutlined, ExportOutlined, ImportOutlined } from '@ant-design/icons-vue'
+import { DownOutlined, ExportOutlined, ImportOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
 import { open } from '@tauri-apps/plugin-shell'
 import { save as saveDialog, open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useNavStore } from '../stores/nav'
@@ -142,6 +141,9 @@ onMounted(async () => {
   if (store.links.length === 0) {
     await store.refresh()
   }
+
+  // 应用启动时自动检查更新（静默检查，仅当有新版本时提示）
+  await checkUpdateOnStartup()
 })
 
 // 处理搜索输入
@@ -200,12 +202,14 @@ const filteredLocalGroups = computed(() => {
   return Array.from(map.entries()).map(([name, links]) => ({ name, links }))
 })
 
-// 配置菜单（导出/导入）
+// 配置菜单（导出/导入/检查更新）
 async function handleConfigMenu({ key }: { key: string | number }) {
   if (key === 'export') {
     await handleExportConfig()
   } else if (key === 'import') {
     await handleImportConfig()
+  } else if (key === 'checkUpdate') {
+    showUpdateModal.value = true
   }
 }
 
@@ -279,6 +283,31 @@ async function handleRefresh() {
     message.success(result.message)
   } else {
     message.error(result.message)
+  }
+}
+
+// 应用启动时静默检查更新
+async function checkUpdateOnStartup() {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+
+    // 获取当前版本和最新版本信息
+    const currentVersion = await invoke<string>('get_current_version')
+    const versionInfo = await invoke<any>('fetch_app_version_info', { url: updateUrl.value })
+
+    // 比较版本
+    const compareResult = await invoke<number>('compare_versions', {
+      current: currentVersion,
+      latest: versionInfo.version
+    })
+
+    // 如果有新版本，显示更新弹窗
+    if (compareResult < 0) {
+      showUpdateModal.value = true
+    }
+  } catch (error) {
+    // 静默失败，不打扰用户
+    console.log('启动时检查更新失败:', error)
   }
 }
 
