@@ -1,16 +1,15 @@
 {
-  "version": "1.2.5",
-  "release_date": "2026-10-12",
+  "version": "1.2.6",
+  "release_date": "2026-10-13",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.5/_1.2.5_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.5/_1.2.5_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.5/_1.2.5_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.6/_1.2.6_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.6/_1.2.6_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.6/_1.2.6_amd64.AppImage"
   },
   "update_log": [
-    "更换应用图标：采用全新工具箱造型图标",
-    "修复更新检查超时问题：新增15秒超时机制，超时直接报错而非无限加载",
-    "优化更新源地址：默认切换至国内可直连的 jsDelivr CDN，提升更新检查成功率",
-    "新增单实例限制：重复打开应用不再新开窗口，而是唤起已有窗口到前台"
+    "优化标题栏图标：使用清晰的 PNG 图标替换 SVG，提升显示效果",
+    "清理项目文件：删除无用的备份图标和过时文件",
+    "保持单实例功能：重复打开应用自动唤起已有窗口"
   ],
   "force_update": false
 }
