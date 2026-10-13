@@ -76,13 +76,23 @@
 }
 ```
 
-## 5. Git 提交并推送
+## 5. 调用脚本执行更新
+
+使用技能目录下的 `update-version.sh` 脚本完成所有更新操作：
 
 ```bash
-git add src-tauri/tauri.conf.json package.json public/app-version.json
-git commit -m "chore: 升级版本至 v新版本号"
-git push
+bash .claude/skills/version-update/update-version.sh <新版本号> "<更新日志内容>"
 ```
+
+脚本会自动完成：
+1. 更新 3 个版本文件
+2. Git 提交
+3. 创建 Git 标签（v新版本号）
+4. 推送代码和标签到 GitHub
+
+**注意**：
+- 更新日志作为第二个参数传递给脚本，多行内容用换行符分隔
+- 脚本会自动检测操作系统（macOS/Linux/Windows Git Bash）并使用兼容的命令
 
 ## 6. 提示用户
 
