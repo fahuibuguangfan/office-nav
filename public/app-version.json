@@ -1,15 +1,15 @@
 {
-  "version": "1.2.6",
+  "version": "1.2.7",
   "release_date": "2026-10-13",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.6/_1.2.6_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.6/_1.2.6_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.6/_1.2.6_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.7/_1.2.7_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.7/_1.2.7_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.7/_1.2.7_amd64.AppImage"
   },
   "update_log": [
-    "优化标题栏图标：使用清晰的 PNG 图标替换 SVG，提升显示效果",
-    "清理项目文件：删除无用的备份图标和过时文件",
-    "保持单实例功能：重复打开应用自动唤起已有窗口"
+    "新增：应用启动时自动检查更新功能",
+    "优化：检查更新按钮移至设置菜单，界面更简洁",
+    "新增：version-update 技能，支持交互式版本升级"
   ],
   "force_update": false
 }
