@@ -1,6 +1,20 @@
-# version-update
+---
+name: version-update
+description: |
+  自动更新项目版本号并同步所有配置文件（tauri.conf.json、package.json、app-version.json）。
+  支持命令：/version-update（交互式选择：1=小版本 1.2.6→1.2.7、2=中版本 1.2.6→1.3.0、3=大版本 1.2.6→2.0.0、4=自定义）、/version-update 1.3.0（直接指定版本号）。
+  自动生成更新日志，提交并推送代码，触发 CI/CD 自动打包（10-15分钟），CDN 同步（1-5分钟）。
+  版本号规则：遵循语义化版本（主.次.修订），小版本=Bug修复，中版本=新功能，大版本=重大更新。
+user-invocable: true
+argument-hint: "[版本号] 或留空交互式选择升级方式"
+allowed-tools:
+  - Read
+  - Edit
+  - Bash
+  - AskUserQuestion
+---
 
-自动更新项目版本号，确保所有版本相关文件同步。支持命令：`/version-update`（交互式选择：小版本、中版本、大版本、自定义）、`/version-update 1.3.0`（指定版本号）。功能：同步更新 `tauri.conf.json`、`package.json`、`app-version.json` 三个文件的版本号，生成更新日志，自动提交并推送到 GitHub 触发 CI/CD 打包（约 10-15 分钟），CDN 同步时间 1-5 分钟。版本号规则：遵循语义化版本 `主.次.修订`，小版本用于 Bug 修复，中版本用于新功能，大版本用于重大更新。
+# /version-update — 自动版本更新
 
 ## 触发条件
 
