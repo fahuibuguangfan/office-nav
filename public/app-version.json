@@ -1,15 +1,13 @@
 {
-  "version": "1.2.9",
+  "version": "1.2.10",
   "release_date": "2026-10-14",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.9/_1.2.9_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.9/_1.2.9_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.9/_1.2.9_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.10/_1.2.10_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.10/_1.2.10_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.10/_1.2.10_amd64.AppImage"
   },
   "update_log": [
-    "- 修复 app-version.json 校验失败导致应用更新检查异常的问题",
-    "- 修复版本升级脚本生成 JSON 时的转义错误，改用 JSON.stringify 生成严格合法 JSON",
-    "- 新增生成后自校验机制，杜绝提交非法 JSON 文件"
+    "更新检查优先使用 cdn.jsdelivr.net，访问失败时自动切换至 fastly.jsdelivr.net"
   ],
   "force_update": false
 }
