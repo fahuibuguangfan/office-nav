@@ -7,7 +7,9 @@
     "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.8/_1.2.8_amd64.AppImage"
   },
   "update_log": [
-    "- version-update 技能重构，使用独立脚本自动创建标签",\n    "- 修复版本升级时未推送 Git 标签的问题",\n    "- 新增跨平台版本升级脚本（macOS/Linux/Windows）"
+    "- version-update 技能重构，使用独立脚本自动创建标签",
+    "- 修复版本升级时未推送 Git 标签的问题",
+    "- 新增跨平台版本升级脚本（macOS/Linux/Windows）"
   ],
   "force_update": false
 }
