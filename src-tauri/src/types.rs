@@ -105,7 +105,7 @@ impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
             // 国内访问 raw.githubusercontent.com 经常超时，默认用 jsdelivr CDN 镜像
-            update_url: Some("https://fastly.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json".to_string()),
+            update_url: Some("https://cdn.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json".to_string()),
         }
     }
 }

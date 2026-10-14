@@ -15,25 +15,57 @@ pub struct VersionInfo {
 #[tauri::command]
 pub async fn fetch_app_version_info(url: String) -> Result<VersionInfo> {
     // 使用带超时的 client，避免网络不通时前端一直"加载中"
-    // 国内访问 raw.githubusercontent.com 经常超时，超时后给明确错误
+    // 每个地址单独计时，首选 CDN 失败后尝试备用 CDN
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .connect_timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| anyhow::anyhow!("创建 HTTP 客户端失败: {}", e))?;
 
+    match try_fetch_version_info(&client, &url).await {
+        Ok(info) => Ok(info),
+        Err(primary_error) => {
+            // 只替换 CDN 主机名，不改动自定义地址的路径或查询参数
+            let fallback = reqwest::Url::parse(&url).ok().and_then(|mut parsed| {
+                if parsed.host_str() != Some("cdn.jsdelivr.net") {
+                    return None;
+                }
+                parsed.set_host(Some("fastly.jsdelivr.net")).ok()?;
+                Some(parsed)
+            });
+
+            if let Some(fallback) = fallback {
+                try_fetch_version_info(&client, fallback.as_str())
+                    .await
+                    .map_err(|fallback_error| anyhow::anyhow!(
+                        "检查更新失败，请检查网络后重试。主地址: {}；备用地址: {}",
+                        primary_error, fallback_error
+                    ).into())
+            } else {
+                Err(anyhow::anyhow!("检查更新失败，请检查网络后重试: {}", primary_error).into())
+            }
+        }
+    }
+}
+
+async fn try_fetch_version_info(
+    client: &reqwest::Client,
+    url: &str,
+) -> std::result::Result<VersionInfo, String> {
     let response = client
-        .get(&url)
+        .get(url)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("获取版本信息失败（可能是网络不通或被墙，尝试在设置里更换更新地址）: {}", e))?;
+        .map_err(|e| format!("获取版本信息失败: {}", e))?;
 
-    let version_info: VersionInfo = response
+    if !response.status().is_success() {
+        return Err(format!("获取版本信息失败，HTTP 状态码: {}", response.status()));
+    }
+
+    response
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("解析版本信息失败: {}", e))?;
-
-    Ok(version_info)
+        .map_err(|e| format!("解析版本信息失败: {}", e))
 }
 
 /// 获取当前应用版本

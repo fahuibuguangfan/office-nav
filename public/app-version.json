@@ -1,10 +1,10 @@
 {
-  "version": "1.2.10",
+  "version": "1.2.11",
   "release_date": "2026-10-14",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.10/_1.2.10_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.10/_1.2.10_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.10/_1.2.10_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.11/_1.2.11_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.11/_1.2.11_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.11/_1.2.11_amd64.AppImage"
   },
   "update_log": [
     "更新检查优先使用 cdn.jsdelivr.net，访问失败时自动切换至 fastly.jsdelivr.net"

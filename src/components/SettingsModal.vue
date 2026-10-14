@@ -100,7 +100,7 @@
         <a-form-item label="版本更新地址">
           <a-input
             v-model:value="updateUrl"
-            placeholder="默认：https://fastly.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json"
+            placeholder="默认：https://cdn.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json"
             style="width: 100%"
           >
             <template #addonAfter>

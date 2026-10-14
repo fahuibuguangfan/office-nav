@@ -89,15 +89,15 @@ pub async fn get_global_config(app: tauri::AppHandle) -> Result<GlobalConfig> {
     let store = app.store("store.json")?;
     let key = "global_config";
 
-    // 旧版本默认更新地址（raw.githubusercontent.com）在国内经常超时
-    // 若用户本地存的还是这个旧默认值，自动迁移到 CDN 镜像并落盘
+    // 旧默认地址自动迁移到 cdn 优先的地址，保留用户自定义地址
     const OLD_RAW_DEFAULT: &str = "https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json";
+    const OLD_FASTLY_DEFAULT: &str = "https://fastly.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json";
 
     let mut migrated = false;
     let config = match store.get(key) {
         Some(v) => {
             let mut cfg: GlobalConfig = serde_json::from_value(v.clone()).unwrap_or_default();
-            if cfg.update_url.as_deref() == Some(OLD_RAW_DEFAULT) {
+            if matches!(cfg.update_url.as_deref(), Some(OLD_RAW_DEFAULT) | Some(OLD_FASTLY_DEFAULT)) {
                 cfg = GlobalConfig::default(); // 用新的 CDN 默认值替换
                 migrated = true;
             }
