@@ -31,7 +31,7 @@
         </div>
 
         <div class="actions">
-          <a-button type="primary" size="large" @click="downloadUpdate">
+          <a-button type="primary" @click="downloadUpdate">
             立即下载
           </a-button>
           <a-button v-if="!versionInfo?.force_update" @click="handleClose">

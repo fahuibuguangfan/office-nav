@@ -27,7 +27,7 @@ export interface CommandResult {
 }
 
 export interface GlobalConfig {
-  updateUrl?: string
+  update_url?: string
 }
 
 /**

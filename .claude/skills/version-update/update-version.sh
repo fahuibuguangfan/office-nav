@@ -32,7 +32,7 @@ echo "🚀 开始版本升级：v$NEW_VERSION"
 echo ""
 
 # 1. 更新 tauri.conf.json
-echo "📝 [1/3] 更新 src-tauri/tauri.conf.json..."
+echo "📝 [1/4] 更新 src-tauri/tauri.conf.json..."
 TAURI_CONF="src-tauri/tauri.conf.json"
 if [ -f "$TAURI_CONF" ]; then
   # 使用 sed 替换版本号（兼容 macOS 和 Linux）
@@ -47,7 +47,7 @@ else
 fi
 
 # 2. 更新 package.json
-echo "📝 [2/3] 更新 package.json..."
+echo "📝 [2/4] 更新 package.json..."
 PACKAGE_JSON="package.json"
 if [ -f "$PACKAGE_JSON" ]; then
   if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -60,13 +60,30 @@ else
   echo "   ⚠️  未找到 $PACKAGE_JSON，跳过"
 fi
 
+# 2.5 更新 src-tauri/Cargo.toml
+# 重要：get_current_version 命令读 env!("CARGO_PKG_VERSION")（即 Cargo.toml 的 version），
+# 若不同步更新，应用运行时报的内部版本号会落后，导致版本检查逻辑异常（如永远提示有新版本）。
+# sed 锚点 ^version = 只匹配 [package] 段的版本行，不会误伤 [dependencies] 段（那里是 key = "x" 形式）
+echo "📝 [3/4] 更新 src-tauri/Cargo.toml..."
+CARGO_TOML="src-tauri/Cargo.toml"
+if [ -f "$CARGO_TOML" ]; then
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' 's/^version = "[^"]*"/version = "'"$NEW_VERSION"'"/' "$CARGO_TOML"
+  else
+    sed -i 's/^version = "[^"]*"/version = "'"$NEW_VERSION"'"/' "$CARGO_TOML"
+  fi
+  echo "   ✅ Cargo.toml 更新完成"
+else
+  echo "   ⚠️  未找到 $CARGO_TOML，跳过"
+fi
+
 # 3. 更新 app-version.json
 # 重要：app-version.json 会被应用拉取并由 serde_json/reqwest 反序列化为 VersionInfo 结构体，
 # 必须是严格合法的 JSON。早期版本用 bash 字符串拼接生成 JSON，存在两个致命缺陷：
 #   (a) 多行更新日志在数组元素之间插入字面 "\n"（反斜杠+n），导致 ",\n" 这种非法转义；
 #   (b) bash 的字符串替换对反斜杠转义不可靠，含反斜杠的日志（如 Windows 路径）会被吞字符。
 # 现改为把更新日志通过临时文件传给 node，用 JSON.stringify 保证转义正确，彻底根治校验失败。
-echo "📝 [3/3] 更新 public/app-version.json..."
+echo "📝 [4/4] 更新 public/app-version.json..."
 APP_VERSION="public/app-version.json"
 if [ -f "$APP_VERSION" ]; then
   # 将多行更新日志写入临时文件（保留原始字节，不做任何 shell 转义）
@@ -142,7 +159,7 @@ echo ""
 echo "📦 提交更改..."
 
 # 4. Git 提交
-git add src-tauri/tauri.conf.json package.json public/app-version.json 2>/dev/null || true
+git add src-tauri/tauri.conf.json src-tauri/Cargo.toml package.json public/app-version.json 2>/dev/null || true
 git commit -m "chore: 升级版本至 v$NEW_VERSION
 
 $CHANGELOG"
@@ -162,6 +179,22 @@ git push origin master || git push origin main || echo "⚠️  推送分支失�
 git push origin "v$NEW_VERSION"
 echo "   ✅ 代码和标签已推送"
 
+# 7. 刷新 jsDelivr CDN 缓存
+# app-version.json 通过 @master 浮动分支引用，jsDelivr 对浮动引用会长期缓存，
+# 不主动 purge 会导致用户拉到旧 JSON（更新提示延迟数小时）。
+# purge 失败不阻断发布流程（CI 打包后会再刷一次兜底）。
+echo "🧹 刷新 jsDelivr CDN 缓存..."
+PURGE_URL="https://purge.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json"
+if command -v curl >/dev/null 2>&1; then
+  if curl -s --max-time 20 "$PURGE_URL" >/dev/null 2>&1; then
+    echo "   ✅ CDN 缓存刷新请求已发送（jsDelivr 各 POP 边缘节点约 1 分钟内生效）"
+  else
+    echo "   ⚠️  CDN 刷新请求失败或超时，不影响发布；CI 打包后会再刷一次兜底"
+  fi
+else
+  echo "   ⚠️  未找到 curl，跳过本地 CDN 刷新；CI 打包后会兜底刷新"
+fi
+
 echo ""
 echo "🎉 版本升级完成！"
 echo ""
@@ -172,6 +205,6 @@ echo "   标签：v$NEW_VERSION"
 echo ""
 echo "⏳ 后续流程："
 echo "   1. GitHub Actions 自动打包（约 10-15 分钟）"
-echo "   2. CDN 同步 app-version.json（约 1-5 分钟）"
+echo "   2. CDN 缓存已主动刷新（约 1 分钟生效），CI 打包完成后会再兜底刷新一次"
 echo "   3. 用户启动应用时自动检测更新"
 echo ""

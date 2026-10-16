@@ -100,7 +100,7 @@
         <a-form-item label="版本更新地址">
           <a-input
             v-model:value="updateUrl"
-            placeholder="默认：https://cdn.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json"
+            placeholder="默认：https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json"
             style="width: 100%"
           >
             <template #addonAfter>
@@ -146,7 +146,12 @@
               办公室服务导航
             </a-descriptions-item>
             <a-descriptions-item label="版本号">
-              v1.2.5
+              <a-space>
+                <span>v{{ appVersion || '...' }}</span>
+                <a-button type="primary" size="small" @click="showUpdateModal = true">
+                  检查更新
+                </a-button>
+              </a-space>
             </a-descriptions-item>
             <a-descriptions-item label="作者">
               发挥不广泛
@@ -154,6 +159,7 @@
           </a-descriptions>
         </a-form-item>
       </a-form>
+      <UpdateModal v-model:open="showUpdateModal" :update-url="updateUrl.trim() || DEFAULT_UPDATE_URL" />
     </div>
   </a-modal>
 </template>
@@ -162,11 +168,13 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { CheckOutlined, BgColorsOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import { invoke } from '@tauri-apps/api/core'
 import { isAutostartEnabled, enableAutostart, disableAutostart } from '@/api/autostart'
 import { getGlobalConfig, saveGlobalConfig } from '@/api/config'
 import { useNavStore } from '@/stores/nav'
 import { useThemeStore, PRESET_COLORS } from '@/stores/theme'
 import { createVNode } from 'vue'
+import UpdateModal from './UpdateModal.vue'
 
 const props = defineProps<{
   open: boolean
@@ -194,7 +202,10 @@ const clearCacheLoading = ref(false)
 const saveUrlLoading = ref(false)
 const saveUpdateUrlLoading = ref(false)
 const sourceUrl = ref('')
+const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json'
 const updateUrl = ref('')
+const showUpdateModal = ref(false)
+const appVersion = ref('')
 const customColor = ref(themeStore.primaryColor)
 
 // 根据当前模式过滤主题色
@@ -212,11 +223,18 @@ onMounted(async () => {
   // 加载当前数据源地址
   sourceUrl.value = store.sourceUrl
 
+  // 读取应用版本号（来自 Cargo.toml，编译时注入）
+  try {
+    appVersion.value = await invoke<string>('get_current_version')
+  } catch (error) {
+    console.error('获取应用版本失败:', error)
+  }
+
   // 加载全局配置
   try {
     const config = await getGlobalConfig()
-    if (config.updateUrl) {
-      updateUrl.value = config.updateUrl
+    if (config.update_url) {
+      updateUrl.value = config.update_url
     }
   } catch (error) {
     console.error('加载全局配置失败:', error)
@@ -311,7 +329,7 @@ const handleSaveUpdateUrl = async () => {
 
   saveUpdateUrlLoading.value = true
   try {
-    await saveGlobalConfig({ updateUrl: updateUrl.value })
+    await saveGlobalConfig({ update_url: updateUrl.value })
     message.success('版本更新地址已保存')
   } catch (error) {
     console.error('保存更新地址失败:', error)
