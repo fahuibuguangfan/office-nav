@@ -2,7 +2,6 @@
   <div class="nav-card">
     <div class="card-header">
       <h4 class="card-title" v-html="highlightText(link.name, highlight)"></h4>
-      <span class="card-group">{{ link.group }}</span>
     </div>
 
     <div class="card-url" @click="openUrl">
@@ -122,16 +121,6 @@ function showVersion() {
   flex: 1;
   word-break: break-all;
   color: var(--text-primary);
-}
-
-.card-group {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  margin-left: 8px;
-  padding: 2px 8px;
-  background: var(--bg-layout);
-  border-radius: 4px;
 }
 
 .card-url {

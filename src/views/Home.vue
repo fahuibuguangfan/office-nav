@@ -53,10 +53,10 @@
             <a-tag color="green" class="local-tag">本地</a-tag>
           </h3>
           <div class="cards">
-            <NavCard
-              v-for="link in group.links"
-              :key="link.url"
-              :link="link"
+            <ProjectCard
+              v-for="item in groupByOrigin(group.links)"
+              :key="item.type === 'project' ? item.project!.key : item.link!.url"
+              :project="item.type === 'project' ? item.project! : singleToProject(item.link!)"
               :highlight="filterQuery"
             />
           </div>
@@ -67,10 +67,10 @@
         <div v-for="group in filteredGroups" :key="group.name" class="group">
           <h3 class="group-title">{{ group.name }} ({{ group.links.length }})</h3>
           <div class="cards">
-            <NavCard
-              v-for="link in group.links"
-              :key="link.url"
-              :link="link"
+            <ProjectCard
+              v-for="item in groupByOrigin(group.links)"
+              :key="item.type === 'project' ? item.project!.key : item.link!.url"
+              :project="item.type === 'project' ? item.project! : singleToProject(item.link!)"
               :highlight="filterQuery"
             />
           </div>
@@ -83,7 +83,10 @@
             显示 {{ filteredLinks.length }} / {{ store.links.length }} 条
           </span>
         </div>
-        <NavList :links="filteredLinks" :highlight="filterQuery" />
+        <div v-for="group in filteredGroups" :key="group.name" class="group list-group">
+          <h3 class="group-title">{{ group.name }} ({{ group.links.length }})</h3>
+          <NavList :links="group.links" :highlight="filterQuery" />
+        </div>
       </div>
     </div>
 
@@ -113,9 +116,11 @@ import { getGlobalConfig } from '../api/config'
 import SearchDropdown from '../components/SearchDropdown.vue'
 import NavCard from '../components/NavCard.vue'
 import NavList from '../components/NavList.vue'
+import ProjectCard from '../components/ProjectCard.vue'
 import UpdateModal from '../components/UpdateModal.vue'
 import LocalLinksModal from '../components/LocalLinksModal.vue'
 import { pinyinMatch } from '../utils/pinyin'
+import { groupByOrigin, splitOrigin, type OriginGroup } from '../utils/origin'
 import dayjs from 'dayjs'
 
 const store = useNavStore()
@@ -201,6 +206,16 @@ const filteredLocalGroups = computed(() => {
   }
   return Array.from(map.entries()).map(([name, links]) => ({ name, links }))
 })
+
+// 单条链接转为入口数=1的项目结构，统一样式
+function singleToProject(link: NavLink): OriginGroup {
+  const { key, name } = splitOrigin(link.url)
+  return {
+    key,
+    name,
+    links: [link]
+  }
+}
 
 // 配置菜单（导出/导入/检查更新）
 async function handleConfigMenu({ key }: { key: string | number }) {
@@ -393,6 +408,14 @@ function formatTime(timestamp: number) {
   .list-count {
     font-size: 13px;
     color: var(--text-tertiary);
+  }
+
+  .list-group {
+    margin-bottom: 24px;
+  }
+
+  .list-group + .list-group {
+    margin-top: 8px;
   }
 }
 

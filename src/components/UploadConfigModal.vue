@@ -9,23 +9,38 @@
     @cancel="handleClose"
   >
     <template #footer>
-      <a-button @click="handleClose" :disabled="publishing">取消</a-button>
-      <a-button
-        v-if="publishing"
-        danger
-        :loading="cancelling"
-        @click="handleStopPublish"
-      >
-        停止发布
-      </a-button>
-      <a-button
-        type="primary"
-        :loading="publishing"
-        :disabled="!canPublish || publishing"
-        @click="handlePublish"
-      >
-        {{ publishing ? '发布中' : '发布' }}
-      </a-button>
+      <div class="footer-content">
+        <a-space class="footer-left">
+          <a-checkbox v-model:checked="uploadConfig.enable_pre_command">
+            启用前置命令
+          </a-checkbox>
+          <a-checkbox v-model:checked="uploadConfig.upload_to_server">
+            上传到服务器
+          </a-checkbox>
+          <a-checkbox v-model:checked="uploadConfig.create_tag">
+            创建 Git 标签
+          </a-checkbox>
+        </a-space>
+        <div class="footer-right">
+          <a-button @click="handleClose" :disabled="publishing">取消</a-button>
+          <a-button
+            v-if="publishing"
+            danger
+            :loading="cancelling"
+            @click="handleStopPublish"
+          >
+            停止发布
+          </a-button>
+          <a-button
+            type="primary"
+            :loading="publishing"
+            :disabled="!canPublish || publishing"
+            @click="handlePublish"
+          >
+            {{ publishing ? '发布中' : '发布' }}
+          </a-button>
+        </div>
+      </div>
     </template>
     <a-form noStyle :label-col="{ span: 6 }" :wrapper-col="{ span: 18 }">
       <a-form-item label="主机名 / 端口">
@@ -160,20 +175,6 @@
             </a-button>
           </div>
         </div>
-      </a-form-item>
-
-      <a-form-item label="选项">
-        <a-space>
-          <a-checkbox v-model:checked="uploadConfig.enable_pre_command">
-            启用前置命令
-          </a-checkbox>
-          <a-checkbox v-model:checked="uploadConfig.upload_to_server">
-            上传到服务器
-          </a-checkbox>
-          <a-checkbox v-model:checked="uploadConfig.create_tag">
-            创建 Git 标签
-          </a-checkbox>
-        </a-space>
       </a-form-item>
     </a-form>
   </a-modal>
@@ -627,5 +628,21 @@ async function handleStopPublish() {
   justify-content: flex-end;
   padding: 8px 12px;
   border-top: 1px solid #f0f0f0;
+}
+
+.footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.footer-left {
+  flex: 1;
+}
+
+.footer-right {
+  display: flex;
+  gap: 8px;
 }
 </style>

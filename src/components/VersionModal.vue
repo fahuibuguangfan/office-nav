@@ -15,7 +15,7 @@
 
     <div v-else-if="versionData" class="version-content">
       <a-descriptions :column="1" bordered>
-        <a-descriptions-item label="Commit Hash">
+        <a-descriptions-item label="提交哈希">
           <div class="commit-hash">
             <code>{{ versionData.commit_hash || '-' }}</code>
             <a-button
@@ -29,23 +29,23 @@
           </div>
         </a-descriptions-item>
 
-        <a-descriptions-item label="Branch Name">
+        <a-descriptions-item label="分支名称">
           <code>{{ versionData.branch_name || '-' }}</code>
         </a-descriptions-item>
 
-        <a-descriptions-item label="Commit Date">
+        <a-descriptions-item label="提交日期">
           {{ versionData.commit_date || '-' }}
         </a-descriptions-item>
 
-        <a-descriptions-item label="Build User">
+        <a-descriptions-item label="构建用户">
           {{ versionData.build_user || '-' }}
         </a-descriptions-item>
 
-        <a-descriptions-item label="Build Date">
+        <a-descriptions-item label="构建日期">
           {{ versionData.build_date || '-' }}
         </a-descriptions-item>
 
-        <a-descriptions-item label="Git Status" v-if="versionData.git_status">
+        <a-descriptions-item label="Git 状态" v-if="versionData.git_status">
           <pre class="git-status">{{ versionData.git_status }}</pre>
         </a-descriptions-item>
       </a-descriptions>
