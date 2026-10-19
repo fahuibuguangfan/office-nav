@@ -104,8 +104,8 @@ pub struct GlobalConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            // 国内访问 raw.githubusercontent.com 经常超时，默认用 jsdelivr CDN 镜像
-            update_url: Some("https://cdn.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json".to_string()),
+            // 默认用 GitHub raw 地址；请求失败时由 update.rs 回退到 Fastly CDN 镜像
+            update_url: Some("https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json".to_string()),
         }
     }
 }

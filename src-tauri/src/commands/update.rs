@@ -15,27 +15,23 @@ pub struct VersionInfo {
 #[tauri::command]
 pub async fn fetch_app_version_info(url: String) -> Result<VersionInfo> {
     // 使用带超时的 client，避免网络不通时前端一直"加载中"
-    // 每个地址单独计时，首选 CDN 失败后尝试备用 CDN
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .connect_timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| anyhow::anyhow!("创建 HTTP 客户端失败: {}", e))?;
 
+    // 默认地址用 GitHub raw 优先，失败后回退 Fastly CDN 镜像。
+    // 两个 URL 路径结构不同（raw 是 /master/，fastly 是 /gh/...@master/），不能用主机名替换，需常量配对。
+    const DEFAULT_PRIMARY: &str = "https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json";
+    const DEFAULT_FALLBACK: &str = "https://fastly.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json";
+
     match try_fetch_version_info(&client, &url).await {
         Ok(info) => Ok(info),
         Err(primary_error) => {
-            // 只替换 CDN 主机名，不改动自定义地址的路径或查询参数
-            let fallback = reqwest::Url::parse(&url).ok().and_then(|mut parsed| {
-                if parsed.host_str() != Some("cdn.jsdelivr.net") {
-                    return None;
-                }
-                parsed.set_host(Some("fastly.jsdelivr.net")).ok()?;
-                Some(parsed)
-            });
-
-            if let Some(fallback) = fallback {
-                try_fetch_version_info(&client, fallback.as_str())
+            // 仅默认地址触发回退；用户自定义地址无法推断备用地址，直接返回错误
+            if url == DEFAULT_PRIMARY {
+                try_fetch_version_info(&client, DEFAULT_FALLBACK)
                     .await
                     .map_err(|fallback_error| anyhow::anyhow!(
                         "检查更新失败，请检查网络后重试。主地址: {}；备用地址: {}",

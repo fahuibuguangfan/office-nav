@@ -122,15 +122,15 @@ const store = useNavStore()
 const filterQuery = ref('')
 const showUpdateModal = ref(false)
 const showLocalModal = ref(false)
-// 版本更新地址：从全局配置读取，默认使用 jsdelivr CDN（国内访问 GitHub raw 易超时）
-const updateUrl = ref('https://cdn.jsdelivr.net/gh/fahuibuguangfan/office-nav@master/public/app-version.json')
+// 版本更新地址：从全局配置读取，默认用 GitHub raw；请求失败后端自动回退 Fastly CDN
+const updateUrl = ref('https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json')
 
 onMounted(async () => {
   // 加载全局配置
   try {
     const config = await getGlobalConfig()
-    if (config.updateUrl) {
-      updateUrl.value = config.updateUrl
+    if (config.update_url) {
+      updateUrl.value = config.update_url
     }
   } catch (error) {
     console.error('加载全局配置失败:', error)
