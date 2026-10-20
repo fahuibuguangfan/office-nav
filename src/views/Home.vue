@@ -14,6 +14,26 @@
           <a-radio-button value="list">列表</a-radio-button>
         </a-radio-group>
 
+        <a-checkbox v-model:checked="store.showHidden">
+          显示隐藏项
+        </a-checkbox>
+
+        <a-button
+          :type="store.batchMode ? 'primary' : 'default'"
+          @click="toggleBatchMode"
+        >
+          {{ store.batchMode ? '退出批量编辑' : '批量编辑' }}
+        </a-button>
+
+        <template v-if="store.batchMode && store.selectedUrls.size > 0">
+          <a-button @click="handleBatchHide">
+            隐藏已选 ({{ store.selectedUrls.size }})
+          </a-button>
+          <a-button @click="handleBatchShow">
+            显示已选 ({{ store.selectedUrls.size }})
+          </a-button>
+        </template>
+
         <a-button @click="showLocalModal = true">
           本地服务
         </a-button>
@@ -288,6 +308,59 @@ async function handleQuickSelect(link: NavLink) {
   } catch (error) {
     console.error('打开链接失败:', error)
     message.error('打开链接失败')
+  }
+}
+
+// 批量编辑模式切换
+function toggleBatchMode() {
+  store.batchMode = !store.batchMode
+  if (!store.batchMode) {
+    store.selectedUrls.clear()
+  }
+}
+
+// 批量隐藏
+async function handleBatchHide() {
+  const urls = Array.from(store.selectedUrls)
+  // 区分远程和本地链接
+  const remoteUrls = urls.filter(url =>
+    store.linksWithHidden.some(link => link.url === url)
+  )
+  const localUrls = urls.filter(url =>
+    store.localLinks.some(link => link.url === url)
+  )
+
+  try {
+    if (remoteUrls.length) await store.batchHideRemote(remoteUrls)
+    if (localUrls.length) await store.batchToggleLocal(localUrls, true)
+
+    store.selectedUrls.clear()
+    message.success(`已隐藏 ${urls.length} 项`)
+  } catch (error) {
+    console.error('批量隐藏失败:', error)
+    message.error('批量隐藏失败')
+  }
+}
+
+// 批量显示
+async function handleBatchShow() {
+  const urls = Array.from(store.selectedUrls)
+  const remoteUrls = urls.filter(url =>
+    store.linksWithHidden.some(link => link.url === url)
+  )
+  const localUrls = urls.filter(url =>
+    store.localLinks.some(link => link.url === url)
+  )
+
+  try {
+    if (remoteUrls.length) await store.batchShowRemote(remoteUrls)
+    if (localUrls.length) await store.batchToggleLocal(localUrls, false)
+
+    store.selectedUrls.clear()
+    message.success(`已显示 ${urls.length} 项`)
+  } catch (error) {
+    console.error('批量显示失败:', error)
+    message.error('批量显示失败')
   }
 }
 

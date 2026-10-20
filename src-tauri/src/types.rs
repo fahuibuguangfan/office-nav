@@ -5,6 +5,9 @@ pub struct NavLink {
     pub name: String,
     pub url: String,
     pub group: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

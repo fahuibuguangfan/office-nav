@@ -1,8 +1,21 @@
 <template>
-  <div class="project-card">
-    <!-- 标题栏：项目名 + 入口数 + 折叠箭头 -->
+  <div
+    class="project-card"
+    :class="{
+      'is-hidden': project.links[0].hidden,
+      'is-batch-mode': store.batchMode
+    }"
+  >
+    <!-- 标题栏：批量勾选 + 项目名 + 入口数 + 折叠箭头 -->
     <div class="project-header">
       <div class="header-left" @click="toggleExpand">
+        <a-checkbox
+          v-if="store.batchMode"
+          class="batch-checkbox"
+          :checked="isProjectSelected"
+          @change="toggleSelect"
+          @click.stop
+        />
         <RightOutlined v-if="!expanded" class="caret" />
         <DownOutlined v-else class="caret" />
         <h4 class="project-title" v-html="highlightText(project.name, highlight)"></h4>
@@ -15,11 +28,18 @@
       <span class="url-text">{{ project.key }}</span>
     </div>
 
-    <!-- 项目级共享操作：版本/备注/上传（第一行，与 NavCard 平齐） -->
+    <!-- 项目级共享操作：版本/备注/上传/隐藏 -->
     <div class="card-actions">
       <a-button size="small" type="link" @click="showVersion">版本</a-button>
       <a-button size="small" type="link" @click="showNote">备注</a-button>
       <a-button size="small" type="link" @click="showUpload">上传配置</a-button>
+      <a-button
+        size="small"
+        type="link"
+        @click="toggleProjectHide"
+      >
+        {{ project.links[0].hidden ? '显示' : '隐藏' }}
+      </a-button>
     </div>
 
     <!-- 入口列表（默认展开） -->
@@ -53,6 +73,7 @@ import { message } from 'ant-design-vue'
 import type { NavLink } from '../api/data'
 import { smartHighlight } from '../utils/pinyin'
 import { splitOrigin, type OriginGroup } from '../utils/origin'
+import { useNavStore } from '../stores/nav'
 import NoteModal from './NoteModal.vue'
 import UploadConfigModal from './UploadConfigModal.vue'
 import VersionModal from './VersionModal.vue'
@@ -62,6 +83,8 @@ const props = defineProps<{
   highlight?: string
 }>()
 
+const store = useNavStore()
+
 // 默认展开
 const expanded = ref(true)
 const noteOpen = ref(false)
@@ -70,6 +93,49 @@ const versionOpen = ref(false)
 
 function toggleExpand() {
   expanded.value = !expanded.value
+}
+
+// 批量选择相关
+const isProjectSelected = computed(() =>
+  props.project.links.every(link => store.selectedUrls.has(link.url))
+)
+
+function toggleSelect() {
+  if (isProjectSelected.value) {
+    props.project.links.forEach(link => store.selectedUrls.delete(link.url))
+  } else {
+    props.project.links.forEach(link => store.selectedUrls.add(link.url))
+  }
+}
+
+// 隐藏项目（批量隐藏该项目所有入口）
+async function toggleProjectHide() {
+  const isHidden = props.project.links[0].hidden
+  const urls = props.project.links.map(link => link.url)
+
+  // 分别判断每个链接是远程还是本地
+  const remoteUrls = urls.filter(url => store.linksWithHidden.some(link => link.url === url))
+  const localUrls = urls.filter(url => store.localLinks.some(link => link.url === url))
+
+  try {
+    // 远程链接和本地链接分别处理
+    if (remoteUrls.length > 0) {
+      if (isHidden) {
+        await store.batchShowRemote(remoteUrls)
+      } else {
+        await store.batchHideRemote(remoteUrls)
+      }
+    }
+
+    if (localUrls.length > 0) {
+      await store.batchToggleLocal(localUrls, !isHidden)
+    }
+
+    message.success(isHidden ? '已显示' : '已隐藏')
+  } catch (error) {
+    console.error('切换隐藏状态失败:', error)
+    message.error('操作失败')
+  }
 }
 
 // 入口名/项目名高亮，复用 NavCard 的 smartHighlight
@@ -129,10 +195,27 @@ function showUpload() {
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .project-card:hover {
   box-shadow: var(--shadow-2);
+}
+
+.project-card.is-hidden {
+  opacity: 0.5;
+  border: 1px solid #d9d9d9;
+}
+
+.project-card.is-batch-mode .header-left {
+  padding-left: 28px;
+}
+
+.batch-checkbox {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  z-index: 10;
 }
 
 .project-header {

@@ -4,6 +4,7 @@ export interface NavLink {
   name: string
   url: string
   group: string
+  hidden?: boolean
 }
 
 export interface NavCache {

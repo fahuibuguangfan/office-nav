@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { NavLink } from '../api/data'
 import { getCache, fetchLinks as apiFetchLinks } from '../api/data'
 import { getLocalLinks, saveLocalLinks as apiSaveLocalLinks } from '../api/local'
+import { getHiddenRemoteLinks, saveHiddenRemoteLinks } from '../api/hidden'
 
 // 模拟数据用于测试
 const mockLinks: NavLink[] = [
@@ -29,15 +30,26 @@ export const useNavStore = defineStore('nav', () => {
   // 本地链接：独立存储，刷新远程数据不会覆盖，只能通过编辑/删除/导入修改
   const localLinks = ref<NavLink[]>([])
 
-  // 加载缓存（远程缓存 + 本地链接）
+  // 隐藏状态管理
+  const hiddenRemoteUrls = ref<Set<string>>(new Set())
+  const showHidden = ref(false)
+  const batchMode = ref(false)
+  const selectedUrls = ref<Set<string>>(new Set())
+
+  // 加载缓存（远程缓存 + 本地链接 + 隐藏状态）
   async function loadCache() {
-    const [cache, local] = await Promise.all([getCache(), getLocalLinks().catch(() => [])])
+    const [cache, local, hiddenUrls] = await Promise.all([
+      getCache(),
+      getLocalLinks().catch(() => []),
+      getHiddenRemoteLinks().catch(() => [])
+    ])
     if (cache) {
       links.value = cache.links
       updatedAt.value = cache.updated_at
       sourceUrl.value = cache.source_url
     }
     localLinks.value = local
+    hiddenRemoteUrls.value = new Set(hiddenUrls)
   }
 
   // 刷新数据（仅更新远程数据，本地链接不受影响）
@@ -64,10 +76,67 @@ export const useNavStore = defineStore('nav', () => {
     localLinks.value = links
   }
 
-  // 按分组归类
+  // 隐藏状态管理方法
+  async function toggleHideRemote(url: string) {
+    if (hiddenRemoteUrls.value.has(url)) {
+      hiddenRemoteUrls.value.delete(url)
+    } else {
+      hiddenRemoteUrls.value.add(url)
+    }
+    await saveHiddenRemoteLinks(Array.from(hiddenRemoteUrls.value))
+  }
+
+  async function batchHideRemote(urls: string[]) {
+    urls.forEach(url => hiddenRemoteUrls.value.add(url))
+    await saveHiddenRemoteLinks(Array.from(hiddenRemoteUrls.value))
+  }
+
+  async function batchShowRemote(urls: string[]) {
+    urls.forEach(url => hiddenRemoteUrls.value.delete(url))
+    await saveHiddenRemoteLinks(Array.from(hiddenRemoteUrls.value))
+  }
+
+  async function toggleLocalHidden(url: string) {
+    const link = localLinks.value.find(l => l.url === url)
+    if (link) {
+      link.hidden = !link.hidden
+      await saveLocalLinks(localLinks.value)
+    }
+  }
+
+  async function batchToggleLocal(urls: string[], hide: boolean) {
+    urls.forEach(url => {
+      const link = localLinks.value.find(l => l.url === url)
+      if (link) link.hidden = hide
+    })
+    await saveLocalLinks(localLinks.value)
+  }
+
+  // 计算属性：合并隐藏状态
+  const linksWithHidden = computed(() =>
+    links.value.map(link => ({
+      ...link,
+      hidden: hiddenRemoteUrls.value.has(link.url)
+    }))
+  )
+
+  // 过滤：根据 showHidden 决定是否显示隐藏项
+  const visibleLinks = computed(() =>
+    showHidden.value
+      ? linksWithHidden.value
+      : linksWithHidden.value.filter(link => !link.hidden)
+  )
+
+  const visibleLocalLinks = computed(() =>
+    showHidden.value
+      ? localLinks.value
+      : localLinks.value.filter(link => !link.hidden)
+  )
+
+  // 按分组归类（基于可见链接）
   const groups = computed(() => {
     const map = new Map<string, NavLink[]>()
-    for (const link of links.value) {
+    for (const link of visibleLinks.value) {
       const group = link.group || '未分组'
       if (!map.has(group)) {
         map.set(group, [])
@@ -77,10 +146,10 @@ export const useNavStore = defineStore('nav', () => {
     return Array.from(map.entries()).map(([name, links]) => ({ name, links }))
   })
 
-  // 本地链接按分组归类
+  // 本地链接按分组归类（基于可见本地链接）
   const localGroups = computed(() => {
     const map = new Map<string, NavLink[]>()
-    for (const link of localLinks.value) {
+    for (const link of visibleLocalLinks.value) {
       const group = link.group || '未分组'
       if (!map.has(group)) {
         map.set(group, [])
@@ -102,5 +171,18 @@ export const useNavStore = defineStore('nav', () => {
     loadCache,
     refresh,
     saveLocalLinks,
+    // 隐藏状态管理
+    hiddenRemoteUrls,
+    showHidden,
+    batchMode,
+    selectedUrls,
+    linksWithHidden,
+    visibleLinks,
+    visibleLocalLinks,
+    toggleHideRemote,
+    batchHideRemote,
+    batchShowRemote,
+    toggleLocalHidden,
+    batchToggleLocal,
   }
 })

@@ -1,10 +1,22 @@
 <template>
   <div class="nav-list">
     <!-- 统一项目行样式：单条也视为入口数=1 -->
-    <div v-for="item in items" :key="item.project.key" class="row-item">
-      <!-- 第一行：项目名 + 入口数 + 折叠箭头 + URL + 复制 + 版本/备注/上传 -->
+    <div
+      v-for="item in items"
+      :key="item.project.key"
+      class="row-item"
+      :class="{ 'is-hidden': item.project.links[0].hidden }"
+    >
+      <!-- 第一行：批量勾选 + 项目名 + 入口数 + 折叠箭头 + URL + 复制 + 版本/备注/上传/隐藏 -->
       <div class="row-main">
         <div class="row-left" @click="toggleProject(item.project)">
+          <a-checkbox
+            v-if="store.batchMode"
+            class="batch-checkbox"
+            :checked="isProjectSelected(item.project)"
+            @change="toggleProjectSelect(item.project)"
+            @click.stop
+          />
           <RightOutlined v-if="!item.expanded" class="caret" />
           <DownOutlined v-else class="caret" />
           <span class="row-name" v-html="highlightText(item.project.name, highlight)"></span>
@@ -20,6 +32,13 @@
           <a-button size="small" type="link" @click="showVersion(item.project)">版本</a-button>
           <a-button size="small" type="link" @click="showNote(item.project)">备注</a-button>
           <a-button size="small" type="link" @click="showUpload(item.project)">上传配置</a-button>
+          <a-button
+            size="small"
+            type="link"
+            @click="toggleProjectHide(item.project)"
+          >
+            {{ item.project.links[0].hidden ? '显示' : '隐藏' }}
+          </a-button>
         </div>
       </div>
 
@@ -58,6 +77,7 @@ import { message } from 'ant-design-vue'
 import type { NavLink } from '../api/data'
 import { smartHighlight } from '../utils/pinyin'
 import { groupByOrigin, splitOrigin, type OriginGroup } from '../utils/origin'
+import { useNavStore } from '../stores/nav'
 import NoteModal from './NoteModal.vue'
 import UploadConfigModal from './UploadConfigModal.vue'
 import VersionModal from './VersionModal.vue'
@@ -66,6 +86,8 @@ const props = defineProps<{
   links: NavLink[]
   highlight?: string
 }>()
+
+const store = useNavStore()
 
 const noteOpen = ref(false)
 const uploadOpen = ref(false)
@@ -81,7 +103,7 @@ interface Item {
 
 const projectExpanded = ref<Record<string, boolean>>({})
 
-// 单条链接也转为项目结构，统一样式
+// 单条转项目结构
 function singleToProject(link: NavLink): OriginGroup {
   const { key, name } = splitOrigin(link.url)
   return {
@@ -99,6 +121,49 @@ const items = computed<Item[]>(() => {
     return { project, expanded }
   })
 })
+
+// 批量选择相关
+function isProjectSelected(project: OriginGroup) {
+  return project.links.every(link => store.selectedUrls.has(link.url))
+}
+
+function toggleProjectSelect(project: OriginGroup) {
+  if (isProjectSelected(project)) {
+    project.links.forEach(link => store.selectedUrls.delete(link.url))
+  } else {
+    project.links.forEach(link => store.selectedUrls.add(link.url))
+  }
+}
+
+// 隐藏项目
+async function toggleProjectHide(project: OriginGroup) {
+  const isHidden = project.links[0].hidden
+  const urls = project.links.map(link => link.url)
+
+  // 分别判断每个链接是远程还是本地
+  const remoteUrls = urls.filter(url => store.linksWithHidden.some(link => link.url === url))
+  const localUrls = urls.filter(url => store.localLinks.some(link => link.url === url))
+
+  try {
+    // 远程链接和本地链接分别处理
+    if (remoteUrls.length > 0) {
+      if (isHidden) {
+        await store.batchShowRemote(remoteUrls)
+      } else {
+        await store.batchHideRemote(remoteUrls)
+      }
+    }
+
+    if (localUrls.length > 0) {
+      await store.batchToggleLocal(localUrls, !isHidden)
+    }
+
+    message.success(isHidden ? '已显示' : '已隐藏')
+  } catch (error) {
+    console.error('切换隐藏状态失败:', error)
+    message.error('操作失败')
+  }
+}
 
 function toggleProject(project: OriginGroup) {
   projectExpanded.value[project.key] = !projectExpanded.value[project.key]
@@ -172,10 +237,15 @@ function showUpload(project: OriginGroup) {
 .row-item {
   padding: 12px 0;
   border-bottom: 1px solid var(--border-color-secondary);
+  position: relative;
 }
 
 .row-item:last-child {
   border-bottom: none;
+}
+
+.row-item.is-hidden {
+  opacity: 0.5;
 }
 
 /* 第一行：左侧（名称+入口数+箭头）+ 中间（URL+复制）+ 右侧（操作按钮） */
@@ -196,6 +266,12 @@ function showUpload(project: OriginGroup) {
   user-select: none;
   min-width: 200px;
   flex-shrink: 0;
+  position: relative;
+  padding-left: 0;
+}
+
+.batch-checkbox {
+  margin-right: 4px;
 }
 
 .caret {

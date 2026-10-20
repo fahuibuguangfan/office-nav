@@ -8,3 +8,4 @@ pub mod git;
 pub mod update;
 pub mod local_links;
 pub mod portable;
+pub mod hidden;

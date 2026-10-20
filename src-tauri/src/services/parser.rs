@@ -113,7 +113,8 @@ pub fn parse_links(html: &str) -> Result<Vec<NavLink>> {
                     links.push(NavLink {
                         name: name.trim().to_string(),
                         url: url.trim().to_string(),
-                        group: group.trim().to_string()
+                        group: group.trim().to_string(),
+                        hidden: None,
                     });
                 }
             }

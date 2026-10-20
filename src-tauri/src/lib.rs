@@ -7,7 +7,7 @@ mod commands;
 pub mod services;
 pub mod utils;
 
-use commands::{data, config, autostart, shell, version, upload, update, local_links, portable};
+use commands::{data, config, autostart, shell, version, upload, update, local_links, portable, hidden};
 use tauri::{Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
 use utils::cancel::PublishCancelManager;
 use utils::lock::PublishLockManager;
@@ -95,6 +95,8 @@ pub fn run() {
             local_links::save_local_links,
             portable::export_config,
             portable::import_config,
+            hidden::get_hidden_remote_links,
+            hidden::save_hidden_remote_links,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

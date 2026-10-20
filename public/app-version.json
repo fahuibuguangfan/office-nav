@@ -1,13 +1,16 @@
 {
-  "version": "1.2.11",
-  "release_date": "2026-10-14",
+  "version": "1.2.12",
+  "release_date": "2026-10-20",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.11/_1.2.11_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.11/_1.2.11_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.11/_1.2.11_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.12/_1.2.12_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.12/_1.2.12_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.12/_1.2.12_amd64.AppImage"
   },
   "update_log": [
-    "更新检查优先使用 cdn.jsdelivr.net，访问失败时自动切换至 fastly.jsdelivr.net"
+    "新增导航项隐藏功能，支持单个隐藏/显示远程链接与本地链接",
+    "新增批量隐藏模式，可一次选择多个链接统一隐藏或显示",
+    "新增「显示已隐藏项」开关，便于查看与恢复隐藏的导航",
+    "隐藏状态独立持久化存储，刷新远程数据不会影响隐藏配置"
   ],
   "force_update": false
 }
