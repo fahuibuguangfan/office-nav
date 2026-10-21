@@ -1,5 +1,27 @@
 当用户要求更新项目版本时，执行以下步骤：
 
+## ⚠️ 关键约束（失败主因）
+
+本项目 CI（`.github/workflows/release.yml`）**只在推送 `v*` 标签时触发**，普通 push 到 master **不会**打包。
+
+历史上发版失败最常见的原因就是：只改了文件、提交并推送 master，**忘了打 `v<版本号>` 标签并推送标签**，导致 GitHub 上没有任何构建。
+
+因此无论走脚本还是手动，**最终都必须**：
+1. `git tag -a v<版本号> -m "Release v<版本号>"`
+2. `git push origin v<版本号>`
+
+并推送后用 `gh run list --limit 3` 确认 Release 工作流确实被触发了。
+
+## 0. 优先用脚本
+
+**首选**直接调用脚本，它会把改文件、提交、建标签、推分支、推标签、刷 CDN 一站式做完：
+
+```bash
+bash .claude/skills/version-update/update-version.sh <新版本号> "<更新日志>"
+```
+
+只有脚本因环境问题跑不起来时，才按下面的步骤手动执行。手动执行时也**必须**完成第 5 步的建标签 + 推标签。
+
 ## 1. 解析版本号
 
 ### 如果用户提供了明确版本号
@@ -76,7 +98,7 @@
 }
 ```
 
-## 5. 调用脚本执行更新
+## 5. 调用脚本执行更新（强烈推荐）
 
 使用技能目录下的 `update-version.sh` 脚本完成所有更新操作：
 
@@ -85,7 +107,7 @@ bash .claude/skills/version-update/update-version.sh <新版本号> "<更新日�
 ```
 
 脚本会自动完成：
-1. 更新 3 个版本文件
+1. 更新 4 个版本文件（tauri.conf.json / Cargo.toml / package.json / app-version.json）
 2. Git 提交
 3. 创建 Git 标签（v新版本号）
 4. 推送代码和标签到 GitHub
@@ -94,11 +116,21 @@ bash .claude/skills/version-update/update-version.sh <新版本号> "<更新日�
 - 更新日志作为第二个参数传递给脚本，多行内容用换行符分隔
 - 脚本会自动检测操作系统（macOS/Linux/Windows Git Bash）并使用兼容的命令
 
-## 6. 提示用户
+## 6. 校验 CI 已触发（必做）
+
+脚本执行完后，**必须**用 gh CLI 确认 Release 工作流被标签推送触发：
+
+```bash
+gh run list --limit 3 --workflow Release
+```
+
+应看到一条 `headBranch: v<版本号>`、`event: push` 的新运行。若没有，说明标签没推上去 —— 用 `git push origin v<版本号>` 补推，否则 GitHub 不会打包。
+
+## 7. 提示用户
 
 告知用户：
 - ✅ 版本号已更新到 x.y.z
-- ✅ 已推送到 GitHub
+- ✅ 代码和 `v<版本号>` 标签已推送到 GitHub
 - ⏳ GitHub Actions 将自动打包（约 10-15 分钟）
 - 📦 打包完成后，用户可通过应用内"检查更新"功能获取新版本
 - 🕐 CDN 同步时间约 1-5 分钟
@@ -108,6 +140,8 @@ bash .claude/skills/version-update/update-version.sh <新版本号> "<更新日�
 - 如果新版本号不合法（非 x.y.z 格式），提示用户重新输入
 - 如果新版本号不高于当前版本，询问用户是否确认继续
 - 如果 git push 失败，提示用户手动推送
+- **如果标签推送失败但分支已推送**：必须单独 `git push origin v<版本号>`，否则 CI 不触发 —— 这是发版最常见的"看起来成功但没打包"的坑
+- 如果 `gh run list` 看不到对应运行，先 `git ls-remote --tags origin | grep v<版本号>` 确认标签确实在远程
 
 ## 示例交互
 

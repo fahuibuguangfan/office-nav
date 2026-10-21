@@ -174,10 +174,37 @@ $CHANGELOG"
 echo "   ✅ 标签已创建"
 
 # 6. 推送代码和标签
+# 关键：标签推送是触发 CI 打包的唯一信号，普通分支推送不会触发 release.yml。
+# 因此分支推送失败可以容忍（代码已在本地提交），但标签推送失败必须重试到底。
 echo "🚀 推送到 GitHub..."
-git push origin master || git push origin main || echo "⚠️  推送分支失败，请检查远程分支名"
-git push origin "v$NEW_VERSION"
-echo "   ✅ 代码和标签已推送"
+
+push_branch() {
+  git push origin master 2>/dev/null || git push origin main 2>/dev/null || return 1
+}
+
+# 分支推送：最多重试 3 次（GitHub 网络抖动常见，尤其国内环境）
+BRANCH_OK=0
+for i in 1 2 3; do
+  if push_branch; then BRANCH_OK=1; break; fi
+  echo "   ⚠️  分支推送第 $i 次失败，5 秒后重试..."
+  sleep 5
+done
+[ $BRANCH_OK -eq 1 ] && echo "   ✅ 分支已推送" || echo "   ⚠️  分支推送失败，请稍后手动 git push origin master"
+
+# 标签推送：必须成功，否则 CI 不触发。重试 5 次。
+echo "🏷️  推送标签 v$NEW_VERSION（触发 CI 必需）..."
+TAG_OK=0
+for i in 1 2 3 4 5; do
+  if git push origin "v$NEW_VERSION" 2>/dev/null; then TAG_OK=1; break; fi
+  echo "   ⚠️  标签推送第 $i 次失败，5 秒后重试..."
+  sleep 5
+done
+if [ $TAG_OK -eq 1 ]; then
+  echo "   ✅ 标签已推送，CI 将被触发"
+else
+  echo "   ❌ 标签推送失败！CI 不会打包。请手动执行：git push origin v$NEW_VERSION"
+  exit 1
+fi
 
 # 7. 刷新 jsDelivr CDN 缓存
 # app-version.json 通过 @master 浮动分支引用，jsDelivr 对浮动引用会长期缓存，
@@ -204,7 +231,9 @@ echo "   发布日期：$TODAY"
 echo "   标签：v$NEW_VERSION"
 echo ""
 echo "⏳ 后续流程："
-echo "   1. GitHub Actions 自动打包（约 10-15 分钟）"
+echo "   1. GitHub Actions 自动打包（约 10-15 分钟）—— 由 v$NEW_VERSION 标签推送触发"
 echo "   2. CDN 缓存已主动刷新（约 1 分钟生效），CI 打包完成后会再兜底刷新一次"
 echo "   3. 用户启动应用时自动检测更新"
+echo ""
+echo "🔍 校验（可选）：运行 gh run list --limit 3 --workflow Release 确认 CI 已被触发"
 echo ""
