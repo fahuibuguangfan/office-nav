@@ -19,7 +19,7 @@
         备注
       </a-button>
       <a-button size="small" type="link" @click="showUpload">
-        上传配置
+        上传
       </a-button>
     </div>
 
@@ -30,7 +30,7 @@
     <UploadConfigModal v-model:open="uploadOpen" :link="link" />
 
     <!-- 版本信息弹窗 -->
-    <VersionModal v-model:open="versionOpen" :url="link.url" />
+    <VersionModal v-model:open="versionOpen" :url="link.url" :project-name="link.name" />
   </div>
 </template>
 

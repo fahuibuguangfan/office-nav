@@ -32,7 +32,7 @@
     <div class="card-actions">
       <a-button size="small" type="link" @click="showVersion">版本</a-button>
       <a-button size="small" type="link" @click="showNote">备注</a-button>
-      <a-button size="small" type="link" @click="showUpload">上传配置</a-button>
+      <a-button size="small" type="link" @click="showUpload">上传</a-button>
       <a-button
         size="small"
         type="link"
@@ -60,7 +60,7 @@
     <!-- 共享弹窗（按项目 key 工作，复用单个入口的 Modal 协议） -->
     <NoteModal v-model:open="noteOpen" :link="projectLink" />
     <UploadConfigModal v-model:open="uploadOpen" :link="projectLink" />
-    <VersionModal v-model:open="versionOpen" :url="projectBaseUrl" />
+    <VersionModal v-model:open="versionOpen" :url="projectBaseUrl" :project-name="project.links[0]?.name || project.name" />
   </div>
 </template>
 

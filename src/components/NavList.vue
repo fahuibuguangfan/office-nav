@@ -31,7 +31,7 @@
         <div class="row-actions">
           <a-button size="small" type="link" @click="showVersion(item.project)">版本</a-button>
           <a-button size="small" type="link" @click="showNote(item.project)">备注</a-button>
-          <a-button size="small" type="link" @click="showUpload(item.project)">上传配置</a-button>
+          <a-button size="small" type="link" @click="showUpload(item.project)">上传</a-button>
           <a-button
             size="small"
             type="link"
@@ -64,7 +64,7 @@
     <!-- 共享弹窗（按项目 key 工作） -->
     <NoteModal v-model:open="noteOpen" :link="activeLink || PLACEHOLDER_LINK" />
     <UploadConfigModal v-model:open="uploadOpen" :link="activeLink || PLACEHOLDER_LINK" />
-    <VersionModal v-model:open="versionOpen" :url="activeLink?.url || ''" />
+    <VersionModal v-model:open="versionOpen" :url="activeLink?.url || ''" :project-name="activeLink?.name || ''" />
   </div>
 </template>
 
@@ -204,7 +204,7 @@ async function copyUrl(link: NavLink) {
 // 项目级共享：用项目根 URL 作为 key，整组共用一份备注/上传配置
 function openProjectActions(project: OriginGroup) {
   activeLink.value = {
-    name: project.name,
+    name: project.links[0]?.name || project.name,
     url: project.key,
     group: project.links[0]?.group || ''
   }

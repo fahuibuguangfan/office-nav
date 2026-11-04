@@ -177,10 +177,11 @@ function handleSearch(query: string) {
 
 // 筛选后的链接列表
 const filteredLinks = computed(() => {
-  if (!filterQuery.value.trim()) return store.links
+  const visibleLinks = store.visibleLinks
+  if (!filterQuery.value.trim()) return visibleLinks
 
   const q = filterQuery.value.toLowerCase()
-  return store.links.filter(link => {
+  return visibleLinks.filter(link => {
     return pinyinMatch(link.name, q) ||
            link.url.toLowerCase().includes(q) ||
            link.group.toLowerCase().includes(q)
@@ -207,10 +208,11 @@ const filteredGroups = computed(() => {
 
 // 筛选后的本地分组
 const filteredLocalGroups = computed(() => {
+  const visibleLinks = store.visibleLocalLinks
   if (!filterQuery.value.trim()) return store.localGroups
 
   const q = filterQuery.value.toLowerCase()
-  const links = store.localLinks.filter(link =>
+  const links = visibleLinks.filter(link =>
     pinyinMatch(link.name, q) ||
     link.url.toLowerCase().includes(q) ||
     link.group.toLowerCase().includes(q)

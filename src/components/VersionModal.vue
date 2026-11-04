@@ -1,19 +1,37 @@
 <template>
   <a-modal
     v-model:open="visible"
-    title="版本信息"
     width="700px"
     :footer="null"
     centered
     :body-style="{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }"
     @cancel="handleClose"
   >
-    <div v-if="loading" class="loading-wrapper">
+    <template #title>
+      <div class="modal-title">
+        <span>版本信息</span>
+        <span class="modal-subtitle">项目：{{ projectName || '当前项目' }}</span>
+        <span class="modal-subtitle">URL：{{ url }}</span>
+      </div>
+    </template>
+
+    <div v-if="loading && !versionData" class="loading-wrapper">
       <a-spin size="large" />
       <p>正在获取版本信息...</p>
+      <a-button size="small" :loading="loading" @click="fetchVersion">
+        <template #icon><ReloadOutlined /></template>
+        刷新
+      </a-button>
     </div>
 
-    <div v-else-if="versionData" class="version-content">
+    <div v-if="versionData" class="version-content">
+      <div class="version-toolbar">
+        <span v-if="versionData.fetched_at" class="fetch-time">更新时间：{{ versionData.fetched_at }}</span>
+        <a-button size="small" :loading="loading" @click="fetchVersion">
+          <template #icon><ReloadOutlined /></template>
+          刷新
+        </a-button>
+      </div>
       <a-descriptions :column="1" bordered>
         <a-descriptions-item label="提交哈希">
           <div class="commit-hash">
@@ -49,19 +67,20 @@
           <pre class="git-status">{{ versionData.git_status }}</pre>
         </a-descriptions-item>
       </a-descriptions>
-
-      <div class="fetch-time">
-        获取时间：{{ versionData.fetched_at }}
-      </div>
     </div>
 
-    <a-empty v-else description="未能获取到版本信息" />
+    <a-empty v-else-if="!loading" description="未能获取到版本信息">
+      <a-button :loading="loading" @click="fetchVersion">
+        <template #icon><ReloadOutlined /></template>
+        刷新
+      </a-button>
+    </a-empty>
   </a-modal>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { CopyOutlined } from '@ant-design/icons-vue'
+import { ReloadOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 
@@ -79,6 +98,7 @@ interface VersionData {
 const props = defineProps<{
   open: boolean
   url: string
+  projectName?: string
 }>()
 
 const emit = defineEmits<{
@@ -111,16 +131,16 @@ function isTauriEnv(): boolean {
 
 // 获取版本信息
 async function fetchVersion() {
-  if (!props.url) return
+  if (!props.url || loading.value) return
 
   if (!isTauriEnv()) {
-    versionData.value = null
-    message.warning('当前在普通浏览器中运行，无法调用后端命令，请在 Tauri 应用窗口中查看版本信息')
+    if (!versionData.value) {
+      message.warning('当前在普通浏览器中运行，无法调用后端命令，请在 Tauri 应用窗口中查看版本信息')
+    }
     return
   }
 
   loading.value = true
-  versionData.value = null
 
   try {
     const { invoke } = await import('@tauri-apps/api/core')
@@ -165,6 +185,32 @@ function handleClose() {
   }
 }
 
+.modal-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal-subtitle {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.version-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.version-toolbar .fetch-time {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
 .version-content {
   .commit-hash {
     display: flex;
@@ -199,13 +245,6 @@ function handleClose() {
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
-  }
-
-  .fetch-time {
-    margin-top: 16px;
-    text-align: right;
-    font-size: 12px;
-    color: #999;
   }
 }
 </style>

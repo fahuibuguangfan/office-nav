@@ -78,29 +78,35 @@ export const useNavStore = defineStore('nav', () => {
 
   // 隐藏状态管理方法
   async function toggleHideRemote(url: string) {
-    if (hiddenRemoteUrls.value.has(url)) {
-      hiddenRemoteUrls.value.delete(url)
+    const next = new Set(hiddenRemoteUrls.value)
+    if (next.has(url)) {
+      next.delete(url)
     } else {
-      hiddenRemoteUrls.value.add(url)
+      next.add(url)
     }
-    await saveHiddenRemoteLinks(Array.from(hiddenRemoteUrls.value))
+    hiddenRemoteUrls.value = next
+    await saveHiddenRemoteLinks(Array.from(next))
   }
 
   async function batchHideRemote(urls: string[]) {
-    urls.forEach(url => hiddenRemoteUrls.value.add(url))
-    await saveHiddenRemoteLinks(Array.from(hiddenRemoteUrls.value))
+    const next = new Set(hiddenRemoteUrls.value)
+    urls.forEach(url => next.add(url))
+    hiddenRemoteUrls.value = next
+    await saveHiddenRemoteLinks(Array.from(next))
   }
 
   async function batchShowRemote(urls: string[]) {
-    urls.forEach(url => hiddenRemoteUrls.value.delete(url))
-    await saveHiddenRemoteLinks(Array.from(hiddenRemoteUrls.value))
+    const next = new Set(hiddenRemoteUrls.value)
+    urls.forEach(url => next.delete(url))
+    hiddenRemoteUrls.value = next
+    await saveHiddenRemoteLinks(Array.from(next))
   }
 
   async function toggleLocalHidden(url: string) {
     const link = localLinks.value.find(l => l.url === url)
     if (link) {
       link.hidden = !link.hidden
-      await saveLocalLinks(localLinks.value)
+      await apiSaveLocalLinks(localLinks.value)
     }
   }
 
@@ -109,7 +115,7 @@ export const useNavStore = defineStore('nav', () => {
       const link = localLinks.value.find(l => l.url === url)
       if (link) link.hidden = hide
     })
-    await saveLocalLinks(localLinks.value)
+    await apiSaveLocalLinks(localLinks.value)
   }
 
   // 计算属性：合并隐藏状态

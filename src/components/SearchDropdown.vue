@@ -47,7 +47,7 @@
     <!-- 弹窗（全局一份，操作哪条就打开哪条的数据） -->
     <NoteModal v-model:open="noteOpen" :link="activeLink!" v-if="activeLink" />
     <UploadConfigModal v-model:open="uploadOpen" :link="activeLink!" v-if="activeLink" />
-    <VersionModal v-model:open="versionOpen" :url="activeLink?.url || ''" />
+    <VersionModal v-model:open="versionOpen" :url="activeLink?.url || ''" :project-name="activeLink?.name || ''" />
   </div>
 </template>
 
