@@ -178,6 +178,104 @@
       </a-form-item>
     </a-form>
   </a-modal>
+
+  <a-modal
+    v-model:open="confirmOpen"
+    title="确认发布"
+    width="900px"
+    centered
+    :confirm-loading="publishing"
+    ok-text="确定发布"
+    cancel-text="取消"
+    :mask-closable="false"
+    :ok-button-props="{ disabled: !confirmationData?.repository || !!confirmationData?.error }"
+    @ok="confirmPublish"
+  >
+    <a-alert
+      v-if="confirmationData?.error"
+      type="error"
+      show-icon
+      :message="confirmationData.error"
+      class="confirm-error"
+    />
+    <template v-if="confirmationData?.repository">
+      <div class="comparison-grid">
+        <section class="comparison-column">
+          <h3>部署版本</h3>
+          <dl class="comparison-list">
+            <div class="comparison-row">
+              <dt>项目 URL</dt>
+              <dd>{{ props.link.url }}</dd>
+            </div>
+            <div class="comparison-row">
+              <dt>提交</dt>
+              <dd><code>{{ confirmationData.version?.commit_hash || '未获取' }}</code></dd>
+            </div>
+            <div class="comparison-row">
+              <dt>分支</dt>
+              <dd><code>{{ confirmationData.version?.branch_name || '-' }}</code></dd>
+            </div>
+            <div class="comparison-row">
+              <dt>提交日期</dt>
+              <dd>{{ confirmationData.version?.commit_date || '-' }}</dd>
+            </div>
+            <div class="comparison-row">
+              <dt>构建用户</dt>
+              <dd>{{ confirmationData.version?.build_user || '-' }}</dd>
+            </div>
+            <div class="comparison-row">
+              <dt>构建日期</dt>
+              <dd>{{ confirmationData.version?.build_date || '-' }}</dd>
+            </div>
+            <div class="comparison-row comparison-row-status">
+              <dt>Git 状态</dt>
+              <dd><pre class="git-status">{{ confirmationData.version?.git_status || '未获取' }}</pre></dd>
+            </div>
+          </dl>
+        </section>
+        <section class="comparison-column">
+          <h3>当前仓库</h3>
+          <dl class="comparison-list">
+            <div class="comparison-row">
+              <dt>工作目录</dt>
+              <dd>{{ uploadConfig.work_dir || '应用启动目录' }}</dd>
+            </div>
+            <div class="comparison-row">
+              <dt>提交</dt>
+              <dd><code>{{ confirmationData.repository.commit_hash || '-' }}</code></dd>
+            </div>
+            <div class="comparison-row">
+              <dt>分支</dt>
+              <dd><code>{{ confirmationData.repository.branch_name || '-' }}</code></dd>
+            </div>
+            <div class="comparison-row">
+              <dt>提交日期</dt>
+              <dd>-</dd>
+            </div>
+            <div class="comparison-row">
+              <dt>构建用户</dt>
+              <dd>-</dd>
+            </div>
+            <div class="comparison-row">
+              <dt>构建日期</dt>
+              <dd>-</dd>
+            </div>
+            <div class="comparison-row comparison-row-status">
+              <dt>Git 状态</dt>
+              <dd><pre class="git-status">{{ confirmationData.repository.git_status || '工作区干净' }}</pre></dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+      <div class="confirm-meta">
+        <div><strong>本次操作：</strong>{{ uploadConfig.upload_to_server ? '上传到服务器' : '' }}{{ uploadConfig.upload_to_server && uploadConfig.create_tag ? '；' : '' }}{{ uploadConfig.create_tag ? '创建 Git 标签' : '' }}</div>
+        <div v-if="confirmationData.version?.fetched_at"><strong>版本信息获取时间：</strong>{{ confirmationData.version.fetched_at }}</div>
+      </div>
+    </template>
+    <div v-else-if="!confirmationData?.error" class="confirm-loading">
+      <a-spin /> 正在读取版本和仓库状态...
+    </div>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -199,6 +297,31 @@ const emit = defineEmits<{
 const visible = ref(false)
 const publishing = ref(false)
 const cancelling = ref(false)
+const confirmOpen = ref(false)
+
+interface RepositoryStatus {
+  branch_name: string | null
+  commit_hash: string | null
+  git_status: string
+}
+
+interface VersionInfo {
+  commit_hash: string | null
+  branch_name: string | null
+  commit_date: string | null
+  build_user: string | null
+  build_date: string | null
+  git_status: string | null
+  fetched_at: string
+}
+
+interface ConfirmationData {
+  repository?: RepositoryStatus
+  version?: VersionInfo | null
+  error?: string
+}
+
+const confirmationData = ref<ConfirmationData | null>(null)
 
 const parsing = ref(false)
 const testing = ref(false)
@@ -456,9 +579,8 @@ function handleClose() {
   visible.value = false
 }
 
-// 发布：完整流程（前置命令 → 打包 → 上传 → 备份 → 解压 → Git 标签）
+// 发布前先展示本机仓库状态，用户确认后才执行操作
 async function handlePublish() {
-  // 先把待保存的配置立即落盘
   if (saveTimer) {
     clearTimeout(saveTimer)
     saveTimer = null
@@ -471,7 +593,6 @@ async function handlePublish() {
     return
   }
 
-  // 基础校验：只要选了任意一个选项就可以发布
   if (!uploadConfig.value.enable_pre_command &&
       !uploadConfig.value.upload_to_server &&
       !uploadConfig.value.create_tag) {
@@ -479,7 +600,6 @@ async function handlePublish() {
     return
   }
 
-  // 如果勾选了上传到服务器，需要校验 SSH 配置
   if (uploadConfig.value.upload_to_server) {
     if (!uploadConfig.value.ssh_host || !uploadConfig.value.ssh_user || !uploadConfig.value.ssh_password) {
       message.warning('请完善 SSH 配置（主机、用户名、密码）')
@@ -491,6 +611,44 @@ async function handlePublish() {
     }
   }
 
+  if (!uploadConfig.value.upload_to_server && !uploadConfig.value.create_tag) {
+    await executePublish()
+    return
+  }
+
+  if (uploadConfig.value.create_tag && !uploadConfig.value.work_dir?.trim()) {
+    message.warning('创建 Git 标签前请填写仓库工作目录')
+    return
+  }
+
+  confirmationData.value = null
+  confirmOpen.value = true
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const [repository, version] = await Promise.all([
+      invoke<RepositoryStatus>('get_repository_status', {
+        workDir: uploadConfig.value.work_dir || null
+      }),
+      invoke<VersionInfo>('fetch_version_info', { url: props.link.url })
+        .catch((error) => {
+          console.warn('获取部署版本信息失败:', error)
+          return null
+        })
+    ])
+    confirmationData.value = { repository, version }
+  } catch (error) {
+    confirmationData.value = { error: `无法读取当前仓库状态：${String(error)}` }
+  }
+}
+
+async function confirmPublish() {
+  if (!confirmationData.value?.repository || confirmationData.value.error) return
+  confirmOpen.value = false
+  await executePublish()
+}
+
+// 执行发布流程（仅由前置命令单独执行，或确认对话框确认后调用）
+async function executePublish() {
   publishing.value = true
   cancelling.value = false
   commandOutput.value = '========== 开始发布 ==========\n'
@@ -644,5 +802,104 @@ async function handleStopPublish() {
 .footer-right {
   display: flex;
   gap: 8px;
+}
+
+.confirm-error {
+  margin-bottom: 16px;
+}
+
+.confirm-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  color: #666;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.comparison-column {
+  min-width: 0;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.comparison-column h3 {
+  margin: 0;
+  padding: 10px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.comparison-list {
+  margin: 0;
+}
+
+.comparison-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.comparison-row:last-child {
+  border-bottom: 0;
+}
+
+.comparison-row dt {
+  color: #888;
+  white-space: nowrap;
+}
+
+.comparison-row dd {
+  min-width: 0;
+  margin: 0;
+  color: #333;
+  overflow-wrap: anywhere;
+}
+
+.comparison-row code {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.git-status {
+  max-height: 96px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #555;
+  font: 12px/1.5 'Courier New', Consolas, monospace;
+}
+
+.confirm-meta {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  color: #666;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .comparison-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

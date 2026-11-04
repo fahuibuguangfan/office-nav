@@ -7,7 +7,7 @@ mod commands;
 pub mod services;
 pub mod utils;
 
-use commands::{data, config, autostart, shell, version, upload, update, local_links, portable, hidden};
+use commands::{data, config, autostart, shell, version, git, upload, update, local_links, portable, hidden};
 use tauri::{Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
 use utils::cancel::PublishCancelManager;
 use utils::lock::PublishLockManager;
@@ -84,6 +84,7 @@ pub fn run() {
             shell::execute_command,
             shell::open_folder,
             version::fetch_version_info,
+            git::get_repository_status,
             upload::test_ssh_connection,
             upload::publish_to_server,
             upload::cancel_publish,
