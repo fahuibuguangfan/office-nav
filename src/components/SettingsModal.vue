@@ -159,7 +159,7 @@
           </a-descriptions>
         </a-form-item>
       </a-form>
-      <UpdateModal v-model:open="showUpdateModal" :update-url="updateUrl.trim() || DEFAULT_UPDATE_URL" />
+      <TauriUpdateModal v-model:open="showUpdateModal" />
     </div>
   </a-modal>
 </template>
@@ -174,7 +174,7 @@ import { getGlobalConfig, saveGlobalConfig } from '@/api/config'
 import { useNavStore } from '@/stores/nav'
 import { useThemeStore, PRESET_COLORS } from '@/stores/theme'
 import { createVNode } from 'vue'
-import UpdateModal from './UpdateModal.vue'
+import TauriUpdateModal from './TauriUpdateModal.vue'
 
 const props = defineProps<{
   open: boolean
@@ -202,7 +202,6 @@ const clearCacheLoading = ref(false)
 const saveUrlLoading = ref(false)
 const saveUpdateUrlLoading = ref(false)
 const sourceUrl = ref('')
-const DEFAULT_UPDATE_URL = 'https://raw.githubusercontent.com/fahuibuguangfan/office-nav/master/public/app-version.json'
 const updateUrl = ref('')
 const showUpdateModal = ref(false)
 const appVersion = ref('')

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tauri-updater",
+  "version": "1.2.15",
+  "notes": "# 更新内容\n\n## 新功能\n- 添加命令行工具 hs/huashun\n  - 支持 `hs --version` 查看版本\n  - 支持 `hs open` 启动GUI\n- 支持软件内自动下载更新\n  - 下载进度显示\n  - 自动安装并重启\n\n## 改进\n- 优化更新体验，无需手动下载\n- 修复已知问题\n\n## 命令行使用\n```bash\n# 查看版本\nhs --version\n\n# 查看详细信息\nhs version\n\n# 启动GUI\nhs open\n```",
+  "pub_date": "2024-11-05T16:30:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/machuang/tauri-network-navigation/releases/download/v1.2.15/办公室服务导航_1.2.15_x64-setup.nsis.zip"
+    },
+    "darwin-x86_64": {
+      "signature": "",
+      "url": "https://github.com/machuang/tauri-network-navigation/releases/download/v1.2.15/办公室服务导航_1.2.15_x64.app.tar.gz"
+    },
+    "darwin-aarch64": {
+      "signature": "",
+      "url": "https://github.com/machuang/tauri-network-navigation/releases/download/v1.2.15/办公室服务导航_1.2.15_aarch64.app.tar.gz"
+    },
+    "linux-x86_64": {
+      "signature": "",
+      "url": "https://github.com/machuang/tauri-network-navigation/releases/download/v1.2.15/tauri-network-navigation_1.2.15_amd64.AppImage.tar.gz"
+    }
+  }
+}

@@ -40,6 +40,14 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://raw.githubusercontent.com/machuang/tauri-network-navigation/master/updater.json"
+      ],
+      "dialog": false,
+      "pubkey": ""
     }
   },
   "bundle": {
@@ -51,6 +59,10 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "../target/release/hs.exe",
+      "../target/release/huashun.exe"
     ],
     "publisher": "开发团队",
     "homepage": "https://example.com",

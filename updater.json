@@ -1,0 +1,11 @@
+{
+  "version": "1.2.15",
+  "notes": "# 更新内容\n\n## 新功能\n- 添加命令行工具 hs/huashun\n- 支持软件内自动下载更新\n\n## 改进\n- 优化更新体验\n- 修复已知问题",
+  "pub_date": "2024-11-05T16:30:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/machuang/tauri-network-navigation/releases/download/v1.2.15/办公室服务导航_1.2.15_x64-setup.nsis.zip"
+    }
+  }
+}

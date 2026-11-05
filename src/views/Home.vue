@@ -118,7 +118,7 @@
       <span>来源：{{ store.sourceUrl }}</span>
     </footer>
 
-    <UpdateModal v-model:open="showUpdateModal" :update-url="updateUrl" />
+    <TauriUpdateModal v-model:open="showUpdateModal" />
     <LocalLinksModal v-model:open="showLocalModal" />
   </div>
 </template>
@@ -136,7 +136,7 @@ import { getGlobalConfig } from '../api/config'
 import SearchDropdown from '../components/SearchDropdown.vue'
 import NavList from '../components/NavList.vue'
 import ProjectCard from '../components/ProjectCard.vue'
-import UpdateModal from '../components/UpdateModal.vue'
+import TauriUpdateModal from '../components/TauriUpdateModal.vue'
 import LocalLinksModal from '../components/LocalLinksModal.vue'
 import { pinyinMatch } from '../utils/pinyin'
 import { groupByOrigin, splitOrigin, type OriginGroup } from '../utils/origin'
