@@ -7,16 +7,31 @@ mod commands;
 pub mod services;
 pub mod utils;
 
-use commands::{data, config, autostart, shell, version, git, upload, update, local_links, portable, hidden};
-use tauri::{Manager, menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
+use commands::{data, config, autostart, shell, version, git, update, local_links, portable, hidden};
+#[cfg(not(target_os = "android"))]
+use commands::upload;
+use tauri::Manager;
+#[cfg(not(target_os = "android"))]
+use tauri::{menu::{MenuBuilder, MenuItemBuilder}, tray::TrayIconBuilder};
+#[cfg(not(target_os = "android"))]
 use utils::cancel::PublishCancelManager;
+#[cfg(not(target_os = "android"))]
 use utils::lock::PublishLockManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init());
+
+    #[cfg(not(target_os = "android"))]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // 已有实例运行时，唤起主窗口到前台
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.unminimize();
@@ -26,45 +41,36 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--flag1", "--flag2"]),
-        ))
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
+        ));
+
+    builder
         .setup(|app| {
-            // 初始化发布锁管理器
-            app.manage(PublishLockManager::new());
-            // 初始化发布取消管理器
-            app.manage(PublishCancelManager::new());
+            #[cfg(not(target_os = "android"))]
+            {
+                app.manage(PublishLockManager::new());
+                app.manage(PublishCancelManager::new());
 
-            // 创建系统托盘菜单
-            let show_i = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
-            let quit_i = MenuItemBuilder::with_id("quit", "退出").build(app)?;
-            let menu = MenuBuilder::new(app)
-                .items(&[&show_i, &quit_i])
-                .build()?;
+                let show_i = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
+                let quit_i = MenuItemBuilder::with_id("quit", "退出").build(app)?;
+                let menu = MenuBuilder::new(app)
+                    .items(&[&show_i, &quit_i])
+                    .build()?;
 
-            // 创建系统托盘
-            let _tray = TrayIconBuilder::new()
-                .menu(&menu)
-                .icon(app.default_window_icon().unwrap().clone())
-                .on_menu_event(move |app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                let _tray = TrayIconBuilder::new()
+                    .menu(&menu)
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .on_menu_event(move |app, event| match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .build(app)?;
-
+                        "quit" => app.exit(0),
+                        _ => {}
+                    })
+                    .build(app)?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -77,16 +83,22 @@ pub fn run() {
             config::save_note,
             config::get_global_config,
             config::save_global_config,
+            #[cfg(not(target_os = "android"))]
             autostart::is_autostart_enabled,
+            #[cfg(not(target_os = "android"))]
             autostart::enable_autostart,
+            #[cfg(not(target_os = "android"))]
             autostart::disable_autostart,
             shell::resolve_hostname,
             shell::execute_command,
             shell::open_folder,
             version::fetch_version_info,
             git::get_repository_status,
+            #[cfg(not(target_os = "android"))]
             upload::test_ssh_connection,
+            #[cfg(not(target_os = "android"))]
             upload::publish_to_server,
+            #[cfg(not(target_os = "android"))]
             upload::cancel_publish,
             update::fetch_app_version_info,
             update::get_current_version,

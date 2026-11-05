@@ -159,32 +159,14 @@ async fn fetch_html(url: &str) -> Result<String> {
 
 /// 单次 HTTP 请求（返回原始错误便于检测）
 async fn fetch_html_once(url: &str) -> std::result::Result<String, reqwest::Error> {
-    // 根据协议选择 TLS 后端
-    let is_https = url.starts_with("https://");
-
-    let client = if is_https {
-        // HTTPS 使用 rustls
-        reqwest::Client::builder()
-            .use_rustls_tls()
-            .timeout(std::time::Duration::from_secs(15))
-            .connect_timeout(std::time::Duration::from_secs(5))
-            .danger_accept_invalid_certs(true)
-            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            .redirect(reqwest::redirect::Policy::limited(10))
-            .pool_max_idle_per_host(10)
-            .build()?
-    } else {
-        // HTTP 使用 native-tls（Windows Schannel）
-        reqwest::Client::builder()
-            .use_native_tls()
-            .timeout(std::time::Duration::from_secs(15))
-            .connect_timeout(std::time::Duration::from_secs(5))
-            .danger_accept_invalid_certs(true)
-            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            .redirect(reqwest::redirect::Policy::limited(10))
-            .pool_max_idle_per_host(10)
-            .build()?
-    };
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .danger_accept_invalid_certs(true)
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .pool_max_idle_per_host(10)
+        .build()?;
 
     let response = client
         .get(url)

@@ -3,6 +3,7 @@ pub mod config;
 pub mod autostart;
 pub mod shell;
 pub mod version;
+#[cfg(not(target_os = "android"))]
 pub mod upload;
 pub mod git;
 pub mod update;
