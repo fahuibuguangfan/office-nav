@@ -6,6 +6,7 @@ mod types;
 mod commands;
 pub mod services;
 pub mod utils;
+pub mod cli;
 
 use commands::{data, config, autostart, shell, version, git, update, local_links, portable, hidden};
 #[cfg(not(target_os = "android"))]

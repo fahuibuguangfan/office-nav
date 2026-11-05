@@ -52,6 +52,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": [
+      "../target/release/hs.exe",
+      "../target/release/huashun.exe"
+    ],
     "publisher": "开发团队",
     "homepage": "https://example.com",
     "shortDescription": "办公室服务导航应用",
@@ -67,7 +71,8 @@
         "installerIcon": "icons/icon.ico",
         "installMode": "perMachine",
         "languages": ["SimpChinese"],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "nsis"
       }
     },
     "macOS": {
