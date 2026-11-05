@@ -1,13 +1,13 @@
 {
-  "version": "1.2.14",
-  "release_date": "2026-11-04",
+  "version": "1.2.15",
+  "release_date": "2026-11-05",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.14/_1.2.14_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.14/_1.2.14_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.14/_1.2.14_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.15/_1.2.15_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.15/_1.2.15_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.15/_1.2.15_amd64.AppImage"
   },
   "update_log": [
-    "发布前确认弹窗展示部署版本与当前仓库对照信息"
+    "新增命令行工具和软件内自动更新功能"
   ],
   "force_update": false
 }
