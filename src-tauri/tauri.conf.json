@@ -60,10 +60,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": {
-      "target/release/hs*": "./",
-      "target/release/huashun*": "./"
-    },
     "publisher": "开发团队",
     "homepage": "https://example.com",
     "shortDescription": "办公室服务导航应用",
