@@ -3,9 +3,16 @@
 ; 在卸载时从 PATH 移除
 
 !macro customInstall
-  ; 安装后将程序目录加入系统 PATH（当前用户）
-  ; $INSTDIR 是 Tauri 安装目录
+  ; 从构建目录复制 CLI 二进制到安装目录
+  ; CI 在 tauri build 前已经构建了 release 版的 hs.exe 和 huashun.exe
+  ; 构建目录：{{target}}\release\
+  ; 安装目录：$INSTDIR
 
+  SetOutPath "$INSTDIR"
+  File /nonfatal "${target}\release\hs.exe"
+  File /nonfatal "${target}\release\huashun.exe"
+
+  ; 将程序目录加入系统 PATH（当前用户）
   ; 读取当前 PATH
   ReadRegStr $0 HKCU "Environment" "Path"
 
