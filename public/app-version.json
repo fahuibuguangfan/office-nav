@@ -1,13 +1,15 @@
 {
-  "version": "1.2.15",
+  "version": "1.2.16",
   "release_date": "2026-11-05",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.15/_1.2.15_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.15/_1.2.15_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.15/_1.2.15_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.16/_1.2.16_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.16/_1.2.16_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.16/_1.2.16_amd64.AppImage"
   },
   "update_log": [
-    "新增命令行工具和软件内自动更新功能"
+    "- 新增应用内更新后自动重启能力：集成 tauri-plugin-process，放开 updater:default 与 process:allow-restart 权限",
+    "- 优化 Windows 安装包：重写 NSIS 钩子，将 CLI 二进制（hs.exe/huashun.exe）打入安装目录并写入系统 PATH，卸载时自动清理",
+    "- 调整 CI 打包流程：提前构建 CLI 二进制并打入安装包，CLI 单独上传至 Release 供无 GUI 用户下载"
   ],
   "force_update": false
 }
