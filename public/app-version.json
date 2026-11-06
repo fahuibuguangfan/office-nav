@@ -1,15 +1,25 @@
 {
-  "version": "1.2.16",
-  "release_date": "2026-11-05",
+  "version": "1.2.17",
+  "release_date": "2026-11-06",
   "download_url": {
-    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.16/_1.2.16_x64-setup.exe",
-    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.16/_1.2.16_aarch64.dmg",
-    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.16/_1.2.16_amd64.AppImage"
+    "windows": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.17/_1.2.17_x64-setup.exe",
+    "macos": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.17/_1.2.17_aarch64.dmg",
+    "linux": "https://github.com/fahuibuguangfan/office-nav/releases/download/v1.2.17/_1.2.17_amd64.AppImage"
   },
   "update_log": [
-    "- 新增应用内更新后自动重启能力：集成 tauri-plugin-process，放开 updater:default 与 process:allow-restart 权限",
-    "- 优化 Windows 安装包：重写 NSIS 钩子，将 CLI 二进制（hs.exe/huashun.exe）打入安装目录并写入系统 PATH，卸载时自动清理",
-    "- 调整 CI 打包流程：提前构建 CLI 二进制并打入安装包，CLI 单独上传至 Release 供无 GUI 用户下载"
+    "## 新增 CLI 命令行工具能力",
+    "- 新增链接搜索匹配模块，支持原文/全拼/首字母三种匹配方式，与 GUI 拼音搜索语义一致",
+    "- 新增 store 读写模块，CLI 直接复用 GUI 的 store.json，导航缓存、本地链接、备注、上传配置全部共享",
+    "- 新增终端表格输出模块，按显示宽度对齐中文列，解决终端列表错位",
+    "- 新增 Tauri IPC 探测能力（ipcprobe），验证 CLI 能否直连运行中的 GUI 进程",
+    "## 设置与数据",
+    "- 设置页清除缓存功能正式接通后端，不再使用模拟延时；新增 clear_cache 命令，仅清除远程导航缓存，保留本地链接、备注与上传配置",
+    "- 抓取导航数据与缓存落盘逻辑拆分为可复用函数，供 GUI 与 CLI 共用",
+    "## 发布流程",
+    "- 发布核心逻辑与环境解耦：GUI 通过事件推送日志并弹系统通知，CLI 直接打印到终端",
+    "- 命令执行核心提取为 run_command，输出回调化，GUI 与 CLI 共用同一套流式输出实现",
+    "## 依赖",
+    "- 新增 clap_complete、dirs、pinyin、unicode-width、open、arboard、auto-launch、rpassword 等 CLI 专用依赖"
   ],
   "force_update": false
 }

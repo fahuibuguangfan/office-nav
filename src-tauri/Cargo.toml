@@ -1,6 +1,6 @@
 [package]
 name = "tauri-network-navigation"
-version = "1.2.16"
+version = "1.2.17"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -60,6 +60,15 @@ clap = { version = "4", features = ["derive"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 ssh2 = "0.9"
+# 以下为 CLI（hs / huashun）专用
+clap_complete = "4"
+dirs = "6"
+pinyin = "0.11"
+unicode-width = "0.2"
+open = "5"
+arboard = { version = "3", default-features = false }
+auto-launch = "0.5"
+rpassword = "7"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -69,3 +78,7 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+[[bin]]
+name = "ipcprobe"
+path = "src/bin/ipcprobe.rs"
