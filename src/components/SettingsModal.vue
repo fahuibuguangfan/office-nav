@@ -361,8 +361,8 @@ const confirmClearCache = () => {
 const clearCache = async () => {
   clearCacheLoading.value = true
   try {
-    // TODO: 调用清除缓存的 API
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('clear_cache')
     message.success('缓存已清除')
   } catch (error) {
     console.error('清除缓存失败:', error)

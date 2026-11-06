@@ -79,6 +79,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             data::fetch_links,
             data::get_cache,
+            data::clear_cache,
             data::fetch_version,
             config::get_upload_config,
             config::save_upload_config,

@@ -62,6 +62,23 @@ pub async fn execute_command(
     timeout_secs: Option<u64>,
 ) -> Result<CommandResult, String> {
     use tauri::Emitter;
+    let mut emit = |stream: &str, data: &str| {
+        let _ = app.emit("command-output", serde_json::json!({
+            "stream": stream,
+            "data": data,
+        }));
+    };
+    run_command(command, work_dir, timeout_secs, &mut emit).await
+}
+
+/// 执行命令的核心实现，GUI 与 CLI 共用。
+/// 每读到一行输出调用一次 `on_output(stream, data)`，stream 为 "stdout" / "stderr"，data 带换行。
+pub async fn run_command(
+    command: String,
+    work_dir: Option<String>,
+    timeout_secs: Option<u64>,
+    on_output: &mut (dyn FnMut(&str, &str) + Send),
+) -> Result<CommandResult, String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::process::Command;
 
@@ -157,10 +174,7 @@ pub async fn execute_command(
                 match line {
                     Ok(Some(line)) => {
                         stdout_buf.push(line.clone());
-                        let _ = app.emit("command-output", serde_json::json!({
-                            "stream": "stdout",
-                            "data": format!("{}\n", line),
-                        }));
+                        on_output("stdout", &format!("{}\n", line));
                     }
                     Ok(None) => {
                         // stdout 已关闭，继续监听其他流
@@ -176,10 +190,7 @@ pub async fn execute_command(
                 match line {
                     Ok(Some(line)) => {
                         stderr_buf.push(line.clone());
-                        let _ = app.emit("command-output", serde_json::json!({
-                            "stream": "stderr",
-                            "data": format!("{}\n", line),
-                        }));
+                        on_output("stderr", &format!("{}\n", line));
                     }
                     Ok(None) => {
                         // stderr 已关闭，继续监听其他流
@@ -204,17 +215,11 @@ pub async fn execute_command(
     if !timed_out {
         while let Ok(Some(line)) = stdout_lines.next_line().await {
             stdout_buf.push(line.clone());
-            let _ = app.emit("command-output", serde_json::json!({
-                "stream": "stdout",
-                "data": format!("{}\n", line),
-            }));
+            on_output("stdout", &format!("{}\n", line));
         }
         while let Ok(Some(line)) = stderr_lines.next_line().await {
             stderr_buf.push(line.clone());
-            let _ = app.emit("command-output", serde_json::json!({
-                "stream": "stderr",
-                "data": format!("{}\n", line),
-            }));
+            on_output("stderr", &format!("{}\n", line));
         }
     }
 
