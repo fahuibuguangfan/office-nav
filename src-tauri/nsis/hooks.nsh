@@ -1,113 +1,23 @@
-; NSIS 安装/卸载钩子
-; 在安装时将 hs.exe 和 huashun.exe 加入系统 PATH
-; 在卸载时从 PATH 移除
+; Tauri 2 NSIS 安装钩子
+; 安装时：把 hs.exe / huashun.exe 放进安装目录，并把安装目录加入系统 PATH
+; 卸载时：删除这两个文件，并从系统 PATH 移除安装目录
+;
+; CLI 二进制在 CI 中先于 tauri build 构建，位于 src-tauri/target/release/。
+; ${__FILEDIR__} 是本文件所在目录（src-tauri/nsis），据此定位构建产物。
+; 本地如果没先构建 CLI，/nonfatal 只告警不中断打包。
+; installMode 为 perMachine，安装器以管理员权限运行，因此写 Machine 级 PATH。
 
-!macro customInstall
-  ; 从构建目录复制 CLI 二进制到安装目录
-  ; CI 在 tauri build 前已经构建了 release 版的 hs.exe 和 huashun.exe
-  ; 构建目录：{{target}}\release\
-  ; 安装目录：$INSTDIR
-
+!macro NSIS_HOOK_POSTINSTALL
   SetOutPath "$INSTDIR"
-  File /nonfatal "${target}\release\hs.exe"
-  File /nonfatal "${target}\release\huashun.exe"
+  File /nonfatal "${__FILEDIR__}\..\target\release\hs.exe"
+  File /nonfatal "${__FILEDIR__}\..\target\release\huashun.exe"
 
-  ; 将程序目录加入系统 PATH（当前用户）
-  ; 读取当前 PATH
-  ReadRegStr $0 HKCU "Environment" "Path"
-
-  ; 检查是否已经在 PATH 中
-  Push $0
-  Push "$INSTDIR"
-  Call StrStr
-  Pop $1
-
-  ; 如果不在 PATH 中，添加
-  StrCmp $1 "" 0 +3
-    ; 在 PATH 末尾添加安装目录
-    StrCpy $0 "$0;$INSTDIR"
-    WriteRegExpandStr HKCU "Environment" "Path" "$0"
-
-  ; 通知系统环境变量已更新
-  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
+  nsExec::ExecToLog `powershell -NoProfile -ExecutionPolicy Bypass -Command "$$p=[Environment]::GetEnvironmentVariable('Path','Machine'); if (($$p -split ';') -notcontains '$INSTDIR') { [Environment]::SetEnvironmentVariable('Path', $$p.TrimEnd(';') + ';$INSTDIR', 'Machine') }"`
 !macroend
 
-!macro customUnInstall
-  ; 卸载时从系统 PATH 移除程序目录
+!macro NSIS_HOOK_PREUNINSTALL
+  Delete "$INSTDIR\hs.exe"
+  Delete "$INSTDIR\huashun.exe"
 
-  ; 读取当前 PATH
-  ReadRegStr $0 HKCU "Environment" "Path"
-
-  ; 移除安装目录
-  Push $0
-  Push "$INSTDIR"
-  Call un.StrStr
-  Pop $1
-
-  ; 如果找到，移除
-  StrCmp $1 "" done
-    ; 移除 PATH 中的安装目录（包括可能的前导 ;）
-    ${StrRep} $0 $0 ";$INSTDIR" ""
-    ${StrRep} $0 $0 "$INSTDIR;" ""
-    ${StrRep} $0 $0 "$INSTDIR" ""
-    WriteRegExpandStr HKCU "Environment" "Path" "$0"
-
-  done:
-  ; 通知系统环境变量已更新
-  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
+  nsExec::ExecToLog `powershell -NoProfile -ExecutionPolicy Bypass -Command "$$p=[Environment]::GetEnvironmentVariable('Path','Machine'); $$n=(($$p -split ';') | Where-Object { $$_ -and $$_ -ne '$INSTDIR' }) -join ';'; [Environment]::SetEnvironmentVariable('Path', $$n, 'Machine')"`
 !macroend
-
-; StrStr - 在字符串中查找子串
-; 输入:
-;   栈顶: 子串
-;   栈顶-1: 源字符串
-; 输出:
-;   栈顶: 找到的位置（如果未找到则为空字符串）
-Function StrStr
-  Exch $R1 ; 子串
-  Exch
-  Exch $R2 ; 源字符串
-  Push $R3
-  Push $R4
-  Push $R5
-  StrLen $R3 $R1
-  StrCpy $R4 0
-  loop:
-    StrCpy $R5 $R2 $R3 $R4
-    StrCmp $R5 $R1 done
-    StrCmp $R5 "" done
-    IntOp $R4 $R4 + 1
-    Goto loop
-  done:
-    StrCpy $R1 $R5
-    Pop $R5
-    Pop $R4
-    Pop $R3
-    Pop $R2
-    Exch $R1
-FunctionEnd
-
-; 卸载版本的 StrStr
-Function un.StrStr
-  Exch $R1
-  Exch
-  Exch $R2
-  Push $R3
-  Push $R4
-  Push $R5
-  StrLen $R3 $R1
-  StrCpy $R4 0
-  loop:
-    StrCpy $R5 $R2 $R3 $R4
-    StrCmp $R5 $R1 done
-    StrCmp $R5 "" done
-    IntOp $R4 $R4 + 1
-    Goto loop
-  done:
-    StrCpy $R1 $R5
-    Pop $R5
-    Pop $R4
-    Pop $R3
-    Pop $R2
-    Exch $R1
-FunctionEnd
